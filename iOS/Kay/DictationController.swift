@@ -39,12 +39,20 @@ final class DictationController: ObservableObject {
             throw fail(String(localized: "Kay can't use the microphone. Open Kay once and allow it."))
         }
 
+        // The Live Activity comes first: from the control Kay is in the background, and iOS only lets an
+        // AudioRecordingIntent activate the microphone once its Live Activity is up.
+        startedAt = Date()
+        startActivity()
+
         let audio = AVAudioSession.sharedInstance()
         do {
             try audio.setCategory(.record, mode: .default)
             try audio.setActive(true)
         } catch {
-            throw fail(String(localized: "The microphone didn't start: \(error.localizedDescription)"))
+            Trace.log("setActive failed: \(error as NSError)")
+            let message = String(localized: "The microphone didn't start: \(error.localizedDescription)")
+            Task { await endActivity(.failed, message: message) }
+            throw fail(message)
         }
 
         let session = DoubaoSession(apiKey: apiKey, resourceId: speech.resourceId)
@@ -54,15 +62,15 @@ final class DictationController: ObservableObject {
             try capture.start()
         } catch {
             try? audio.setActive(false)
-            throw fail(String(localized: "The microphone didn't start: \(error.localizedDescription)"))
+            let message = String(localized: "The microphone didn't start: \(error.localizedDescription)")
+            Task { await endActivity(.failed, message: message) }
+            throw fail(message)
         }
         session.start()
 
         self.session = session
         self.capture = capture
-        startedAt = Date()
         state = .recording
-        startActivity()
     }
 
     func stop() async {
@@ -120,8 +128,12 @@ final class DictationController: ObservableObject {
         HistoryStore.save(history)
     }
 
+    /// Also kept in the history: from the control nothing of Kay is on screen, so this is the only place
+    /// the reason shows up.
     private func fail(_ message: String) -> KayError {
         lastError = message
+        Trace.log("start failed: \(message)")
+        record(HistoryEntry(date: Date(), text: "", audioSeconds: 0, latencyMs: nil, error: message))
         return KayError(message: message)
     }
 
@@ -131,8 +143,13 @@ final class DictationController: ObservableObject {
     /// while a Live Activity is up.
     private func startActivity() {
         let state = DictationActivityAttributes.ContentState(phase: .listening, startedAt: startedAt, message: nil)
-        activity = try? Activity.request(attributes: DictationActivityAttributes(),
-                                         content: .init(state: state, staleDate: nil))
+        do {
+            activity = try Activity.request(attributes: DictationActivityAttributes(),
+                                            content: .init(state: state, staleDate: nil))
+            Trace.log("activity started")
+        } catch {
+            Trace.log("activity failed: \(error)")
+        }
     }
 
     private func updateActivity(_ phase: DictationActivityAttributes.ContentState.Phase, message: String?) async {
