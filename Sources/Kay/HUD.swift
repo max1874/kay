@@ -74,6 +74,10 @@ final class HUD {
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
 
         let host = NSHostingView(rootView: HUDView(state: content))
+        // Kay sizes the panel itself, once per mode. Left to the hosting view, every level update
+        // (20 a second) re-derived the window's size limits inside the constraints pass until AppKit
+        // gave up and threw — 1.3.1 crashed on letting go of the key.
+        host.sizingOptions = []
         // The window shadow follows the layer; unclipped, it would box the capsule in grey.
         host.wantsLayer = true
         host.layer?.cornerRadius = HUDView.height / 2
@@ -123,6 +127,7 @@ private struct HUDView: View {
                     Text(verbatim: Format.clock(context.date.timeIntervalSince(since)))
                         .font(.system(size: 13, weight: .medium).monospacedDigit())
                         .foregroundStyle(.secondary)
+                        .frame(width: 36, alignment: .leading)  // the clock ticking must not resize the capsule
                 }
             case .recognizing:
                 ProgressView().controlSize(.small)
