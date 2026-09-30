@@ -328,6 +328,7 @@
 				DEVELOPMENT_TEAM = 4V5KP842PK;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				CODE_SIGN_ENTITLEMENTS = Kay.entitlements;
 				INFOPLIST_FILE = Kay/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Kay;
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
@@ -361,6 +362,7 @@
 				DEVELOPMENT_TEAM = 4V5KP842PK;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				CODE_SIGN_ENTITLEMENTS = Kay.entitlements;
 				INFOPLIST_FILE = Kay/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Kay;
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
@@ -392,6 +394,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 4V5KP842PK;
 				GENERATE_INFOPLIST_FILE = NO;
+				CODE_SIGN_ENTITLEMENTS = KayWidgets.entitlements;
 				INFOPLIST_FILE = KayWidgets/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -417,6 +420,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 4V5KP842PK;
 				GENERATE_INFOPLIST_FILE = NO;
+				CODE_SIGN_ENTITLEMENTS = KayWidgets.entitlements;
 				INFOPLIST_FILE = KayWidgets/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",

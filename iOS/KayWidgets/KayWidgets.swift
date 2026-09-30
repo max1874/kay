@@ -11,17 +11,25 @@ struct KayWidgets: WidgetBundle {
     }
 }
 
-/// The button people put on the Action Button, in Control Center or on the Lock Screen.
+/// The switch people put on the Action Button, in Control Center or on the Lock Screen: on while Kay
+/// listens, off once it stopped.
 struct DictationControl: ControlWidget {
     var body: some ControlWidgetConfiguration {
-        StaticControlConfiguration(kind: "com.max1874.kay.dictate") {
-            ControlWidgetButton(action: ToggleDictationIntent()) {
-                Label("Dictate", systemImage: "waveform")
+        StaticControlConfiguration(kind: SharedState.controlKind, provider: ListeningProvider()) { listening in
+            ControlWidgetToggle("Dictate", isOn: listening, action: SetDictationIntent()) { on in
+                Label(on ? "Listening" : "Dictate", systemImage: on ? "waveform" : "mic")
             }
+            .tint(.red)
         }
         .displayName("Dictate with Kay")
         .description("Press to start, press again to stop. The text is copied to the clipboard.")
     }
+}
+
+private struct ListeningProvider: ControlValueProvider {
+    var previewValue: Bool { false }
+
+    func currentValue() async throws -> Bool { SharedState.isRecording }
 }
 
 struct DictationLiveActivity: Widget {
@@ -81,6 +89,7 @@ private struct PhaseIcon: View {
         case .listening: Image(systemName: "mic.fill").foregroundStyle(.red)
         case .recognizing: Image(systemName: "waveform").foregroundStyle(.blue)
         case .copied: Image(systemName: "doc.on.clipboard.fill").foregroundStyle(.green)
+        case .tapToCopy: Image(systemName: "hand.tap.fill").foregroundStyle(.blue)
         case .failed: Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
         }
     }
@@ -94,6 +103,7 @@ private struct PhaseText: View {
         case .listening: Text("Listening… press again to stop")
         case .recognizing: Text("Recognizing…")
         case .copied: Text(state.message ?? "").foregroundStyle(.primary)
+        case .tapToCopy: Text(state.message ?? "").foregroundStyle(.primary)
         case .failed: Text(state.message ?? "").foregroundStyle(.secondary)
         }
     }
@@ -110,6 +120,8 @@ private struct Elapsed: View {
                 .multilineTextAlignment(.trailing)
         } else if state.phase == .copied {
             Text("Copied").font(.caption.weight(.semibold)).foregroundStyle(.green)
+        } else if state.phase == .tapToCopy {
+            Text("Tap to copy").font(.caption.weight(.semibold)).foregroundStyle(.blue)
         }
     }
 }

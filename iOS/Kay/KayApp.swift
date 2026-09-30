@@ -3,9 +3,14 @@ import SwiftUI
 
 @main
 struct KayApp: App {
+    @Environment(\.scenePhase) private var scenePhase
+
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .onChange(of: scenePhase) {
+                    if scenePhase == .active { DictationController.shared.becameActive() }
+                }
                 .task {
                     // Asked here, in the foreground: the control may later start the microphone with
                     // no Kay on screen, and a permission prompt cannot appear then.

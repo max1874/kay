@@ -1,6 +1,7 @@
 import ActivityKit
 import AVFoundation
 import UIKit
+import WidgetKit
 
 /// One dictation at a time: start streams the microphone to Doubao, stop waits for the final text and
 /// puts it on the clipboard. Driven by the control (Action Button, Control Center, Lock Screen) and by
@@ -11,7 +12,13 @@ final class DictationController: ObservableObject {
 
     enum State { case idle, recording, recognizing }
 
-    @Published private(set) var state = State.idle
+    @Published private(set) var state = State.idle {
+        didSet {
+            guard (state == .recording) != SharedState.isRecording else { return }
+            SharedState.isRecording = state == .recording
+            ControlCenter.shared.reloadControls(ofKind: SharedState.controlKind)
+        }
+    }
     @Published private(set) var history: [HistoryEntry] = HistoryStore.load()
     @Published private(set) var lastError: String?
 
@@ -19,6 +26,16 @@ final class DictationController: ObservableObject {
     private var session: DoubaoSession?
     private var activity: Activity<DictationActivityAttributes>?
     private var startedAt = Date()
+    /// Text iOS wouldn't let Kay put on the clipboard from the background; copied when Kay comes forward.
+    private var pendingCopy: String?
+
+    private init() {
+        // A fresh process is never listening, whatever a previous one left behind.
+        if SharedState.isRecording {
+            SharedState.isRecording = false
+            ControlCenter.shared.reloadControls(ofKind: SharedState.controlKind)
+        }
+    }
 
     func toggle() async throws {
         switch state {
@@ -26,6 +43,14 @@ final class DictationController: ObservableObject {
         case .recording: await stop()
         case .recognizing: break
         }
+    }
+
+    /// Called when Kay comes to the foreground.
+    func becameActive() {
+        guard let text = pendingCopy else { return }
+        pendingCopy = nil
+        UIPasteboard.general.string = text
+        Trace.log("pending copy done")
     }
 
     func start() throws {
@@ -78,7 +103,9 @@ final class DictationController: ObservableObject {
         let rest = capture.stop()
         let seconds = capture.recordedSeconds
         self.capture = nil
-        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+        // The audio session stays active until the text is on the clipboard: it is what keeps Kay running
+        // in the background meanwhile.
+        defer { try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation) }
 
         state = .recognizing
         await updateActivity(.recognizing, message: nil)
@@ -97,9 +124,18 @@ final class DictationController: ObservableObject {
                 await endActivity(.failed, message: String(localized: "Didn't catch that."))
                 return
             }
-            UIPasteboard.general.string = text
+            let pasteboard = UIPasteboard.general
+            let before = pasteboard.changeCount
+            pasteboard.string = text
+            let copied = pasteboard.changeCount != before
+            Trace.log("pasteboard: changeCount \(before) -> \(pasteboard.changeCount), appState=\(UIApplication.shared.applicationState.rawValue)")
             record(HistoryEntry(date: Date(), text: text, audioSeconds: seconds, latencyMs: ms))
-            await endActivity(.copied, message: text)
+            if copied {
+                await endActivity(.copied, message: text)
+            } else {
+                pendingCopy = text
+                await endActivity(.tapToCopy, message: text)
+            }
         case .failure(let error):
             let message = error.localizedDescription
             lastError = message
@@ -160,7 +196,8 @@ final class DictationController: ObservableObject {
     /// Leaves the result on the Lock Screen / Dynamic Island for a few seconds, then goes away.
     private func endActivity(_ phase: DictationActivityAttributes.ContentState.Phase, message: String) async {
         let state = DictationActivityAttributes.ContentState(phase: phase, startedAt: startedAt, message: message)
-        await activity?.end(.init(state: state, staleDate: nil), dismissalPolicy: .after(.now + 4))
+        let linger: TimeInterval = phase == .tapToCopy ? 60 : 4
+        await activity?.end(.init(state: state, staleDate: nil), dismissalPolicy: .after(.now + linger))
         activity = nil
     }
 }

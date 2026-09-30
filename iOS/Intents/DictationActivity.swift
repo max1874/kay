@@ -6,7 +6,9 @@ import Foundation
 struct DictationActivityAttributes: ActivityAttributes {
     struct ContentState: Codable, Hashable {
         enum Phase: String, Codable, Hashable {
-            case listening, recognizing, copied, failed
+            /// `tapToCopy`: recognized, but iOS kept the clipboard from Kay in the background; tapping the
+            /// activity opens Kay, which copies it then.
+            case listening, recognizing, copied, tapToCopy, failed
         }
 
         var phase: Phase
