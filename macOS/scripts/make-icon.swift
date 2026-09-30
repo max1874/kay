@@ -1,5 +1,5 @@
 #!/usr/bin/env swift
-// Renders macOS/Resources/AppIcon.icns. Run via `make icon`.
+// Renders macOS/Resources/AppIcon.icns and the iPhone icon (iOS/Kay/Assets.xcassets). Run via `make icon`.
 //
 // Drawn in code rather than shipped as a binary asset so the mark stays editable.
 
@@ -9,15 +9,20 @@ let root = URL(fileURLWithPath: CommandLine.arguments.dropFirst().first ?? ".")
 let iconset = root.appendingPathComponent("build/AppIcon.iconset")
 try? FileManager.default.createDirectory(at: iconset, withIntermediateDirectories: true)
 
-/// macOS icons sit on a squircle inset from the canvas edge.
-func render(size: CGFloat) -> NSImage {
+/// macOS icons sit on a squircle inset from the canvas edge; iPhone icons fill the square and the
+/// system rounds them.
+func render(size: CGFloat, fullBleed: Bool = false) -> NSImage {
     let image = NSImage(size: NSSize(width: size, height: size))
     image.lockFocus()
     defer { image.unlockFocus() }
+    draw(size: size, fullBleed: fullBleed)
+    return image
+}
 
-    let inset = size * 0.08
+func draw(size: CGFloat, fullBleed: Bool) {
+    let inset = fullBleed ? 0 : size * 0.08
     let rect = CGRect(x: inset, y: inset, width: size - inset * 2, height: size - inset * 2)
-    let radius = rect.width * 0.2237  // Apple's continuous-corner ratio
+    let radius = fullBleed ? 0 : rect.width * 0.2237  // Apple's continuous-corner ratio
     let squircle = NSBezierPath(roundedRect: rect, xRadius: radius, yRadius: radius)
 
     NSGraphicsContext.current?.saveGraphicsState()
@@ -39,7 +44,6 @@ func render(size: CGFloat) -> NSImage {
         glyph.draw(in: CGRect(x: rect.midX - g.width / 2, y: rect.midY - g.height / 2,
                               width: g.width, height: g.height))
     }
-    return image
 }
 
 func write(_ image: NSImage, pixels: Int, name: String) {
@@ -52,6 +56,22 @@ func write(_ image: NSImage, pixels: Int, name: String) {
 for base in [16, 32, 128, 256, 512] {
     write(render(size: CGFloat(base)), pixels: base, name: "icon_\(base)x\(base).png")
     write(render(size: CGFloat(base * 2)), pixels: base * 2, name: "icon_\(base)x\(base)@2x.png")
+}
+
+// iPhone: 1024 px, opaque (App Store rejects an icon with an alpha channel).
+if let context = CGContext(data: nil, width: 1024, height: 1024, bitsPerComponent: 8, bytesPerRow: 0,
+                           space: CGColorSpace(name: CGColorSpace.sRGB)!,
+                           bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue) {
+    NSGraphicsContext.saveGraphicsState()
+    NSGraphicsContext.current = NSGraphicsContext(cgContext: context, flipped: false)
+    draw(size: 1024, fullBleed: true)
+    NSGraphicsContext.restoreGraphicsState()
+    let ios = root.appendingPathComponent("iOS/Kay/Assets.xcassets/AppIcon.appiconset/AppIcon.png")
+    if let image = context.makeImage(),
+       let png = NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:]) {
+        try? png.write(to: ios)
+        print("iOS/Kay/Assets.xcassets/AppIcon.appiconset/AppIcon.png")
+    }
 }
 
 let process = Process()
