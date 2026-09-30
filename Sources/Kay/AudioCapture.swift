@@ -5,6 +5,8 @@ final class AudioCapture {
     static let chunkBytes = 16000 * 2 / 5  // 200ms
 
     var onChunk: ((Data) -> Void)?
+    /// Loudness of each converted buffer, 0...1, about 20 times a second. Drives the waveforms.
+    var onLevel: ((Float) -> Void)?
 
     private let engine = AVAudioEngine()
     private let target = AVAudioFormat(commonFormat: .pcmFormatInt16, sampleRate: 16000,
@@ -44,6 +46,18 @@ final class AudioCapture {
         }
     }
 
+    /// RMS on a log scale, so ordinary speech fills most of the range instead of a sliver of it.
+    private static func level(_ samples: UnsafePointer<Int16>, count: Int) -> Float {
+        guard count > 0 else { return 0 }
+        var sum: Float = 0
+        for i in 0..<count {
+            let v = Float(samples[i]) / Float(Int16.max)
+            sum += v * v
+        }
+        let db = 20 * log10(max(sqrt(sum / Float(count)), 1e-5))
+        return min(max((db + 55) / 45, 0), 1)  // -55 dB → 0, -10 dB → 1
+    }
+
     private func convert(_ input: AVAudioPCMBuffer) {
         guard let converter else { return }
         let capacity = AVAudioFrameCount(Double(input.frameLength) * target.sampleRate / input.format.sampleRate) + 32
@@ -61,6 +75,7 @@ final class AudioCapture {
         }
         guard error == nil, out.frameLength > 0, let samples = out.int16ChannelData else { return }
         let data = Data(bytes: samples[0], count: Int(out.frameLength) * 2)
+        onLevel?(Self.level(samples[0], count: Int(out.frameLength)))
 
         queue.async {
             self.buffer.append(data)

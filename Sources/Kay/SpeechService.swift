@@ -42,6 +42,9 @@ final class SpeechService: ObservableObject {
 
     @Published private(set) var status: Status
     @Published private(set) var maskedKey: String?
+    /// A replacement key that failed its test. Kept apart from `status`, which describes the stored
+    /// key: a typo in a new key must not make Kay look broken while the saved one still works.
+    @Published private(set) var candidateError: String?
     @Published var resourceId: String {
         didSet {
             UserDefaults.standard.set(resourceId, forKey: Self.resourceDefaultsKey)
@@ -71,14 +74,23 @@ final class SpeechService: ObservableObject {
     func test(newKey: String?) async {
         let key = (newKey ?? apiKey ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         guard !key.isEmpty else { return }
+        let isReplacement = apiKey != nil && key != apiKey
+        let previous = status
+        candidateError = nil
         status = .testing
         switch await Self.verify(key: key, resourceId: resourceId) {
         case .failure(let message):
-            status = .failed(message)
+            if isReplacement {
+                candidateError = message
+                status = previous
+            } else {
+                status = .failed(message)
+            }
         case .success(let ms):
             if key != apiKey {
                 guard Keychain.set(key), Keychain.get() == key else {
-                    status = .failed(String(localized: "The key works, but Kay couldn't save it to the Keychain."))
+                    let message = String(localized: "The key works, but Kay couldn't save it to the Keychain.")
+                    if isReplacement { candidateError = message; status = previous } else { status = .failed(message) }
                     return
                 }
                 apiKey = key
@@ -88,7 +100,12 @@ final class SpeechService: ObservableObject {
         }
     }
 
+    func clearCandidateError() {
+        candidateError = nil
+    }
+
     func remove() {
+        candidateError = nil
         Keychain.set("")
         apiKey = nil
         maskedKey = nil
