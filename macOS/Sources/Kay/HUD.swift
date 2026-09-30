@@ -36,8 +36,13 @@ final class HUD {
         NSAnimationContext.runAnimationGroup {
             $0.duration = 0.16
             panel.animator().alphaValue = 0
-        } completionHandler: {
+        } completionHandler: { [content] in
+            // A dictation that began during the fade has already brought the panel back.
+            guard panel.alphaValue == 0 else { return }
             panel.orderOut(nil)
+            // An ordered-out panel keeps its views running: left on .recognizing, the spinner went on
+            // animating after every dictation (≈15 % CPU, 1.4.2); left on .listening, the clock ticked.
+            content.mode = .idle
         }
     }
 
@@ -98,6 +103,8 @@ final class HUD {
 
 final class HUDState: ObservableObject {
     enum Mode: Equatable {
+        /// Hidden: nothing that animates.
+        case idle
         case listening(since: Date)
         case recognizing
         case message(String, symbol: String)
@@ -105,7 +112,7 @@ final class HUDState: ObservableObject {
 
     static let barCount = 14
 
-    @Published var mode = Mode.recognizing
+    @Published var mode = Mode.idle
     @Published var levels: [Float] = Array(repeating: 0, count: barCount)
 }
 
@@ -117,6 +124,8 @@ private struct HUDView: View {
     var body: some View {
         HStack(spacing: 10) {
             switch state.mode {
+            case .idle:
+                EmptyView()
             case .listening(let since):
                 Circle()
                     .fill(Color.red)

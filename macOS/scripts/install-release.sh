@@ -36,5 +36,6 @@ ditto "$MOUNT/Kay.app" /Applications/Kay.app
 
 # A stapled ticket means it opens without asking Apple, offline included.
 xcrun stapler validate /Applications/Kay.app
-open /Applications/Kay.app
+# -g: start it without bringing it forward; whoever runs this is working in another app.
+open -g /Applications/Kay.app
 echo "==> installed ${VERSION}"
