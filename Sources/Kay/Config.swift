@@ -1,27 +1,30 @@
 import Foundation
 
-struct Config: Codable {
-    var volcApiKey: String
+enum AppFiles {
+    static var directory: URL {
+        FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library/Application Support/Kay")
+    }
 }
 
-enum ConfigStore {
-    static var url: URL {
-        FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent("Library/Application Support/Kay/config.json")
+/// 1.0.0 kept the API key in a JSON file; from 1.1.0 it lives in the Keychain.
+/// Only read once, to move the key over, then deleted.
+enum LegacyConfig {
+    private struct Config: Codable {
+        var volcApiKey: String
     }
 
-    static func load() -> Config? {
+    private static var url: URL { AppFiles.directory.appendingPathComponent("config.json") }
+
+    static func takeApiKey() -> String? {
         guard let data = try? Data(contentsOf: url),
-              let config = try? JSONDecoder().decode(Config.self, from: data),
-              !config.volcApiKey.isEmpty
+              let key = try? JSONDecoder().decode(Config.self, from: data).volcApiKey,
+              !key.isEmpty
         else { return nil }
-        return config
+        return key
     }
 
-    static func save(_ config: Config) throws {
-        let dir = url.deletingLastPathComponent()
-        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        try JSONEncoder().encode(config).write(to: url, options: .atomic)
-        try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
+    static func remove() {
+        try? FileManager.default.removeItem(at: url)
     }
 }

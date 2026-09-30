@@ -12,12 +12,18 @@ final class AudioCapture {
     private let queue = DispatchQueue(label: "kay.audio")
     private var converter: AVAudioConverter?
     private var buffer = Data()
+    private var recordedBytes = 0
+
+    /// How much audio has been captured so far, which is what Volcengine bills by.
+    var recordedSeconds: Double {
+        queue.sync { Double(recordedBytes) / (16000 * 2) }
+    }
 
     func start() throws {
         let input = engine.inputNode
         let format = input.outputFormat(forBus: 0)
         guard format.sampleRate > 0, let converter = AVAudioConverter(from: format, to: target) else {
-            throw KayError(message: "没有可用的麦克风输入")
+            throw KayError(message: String(localized: "No microphone input is available."))
         }
         self.converter = converter
         input.installTap(onBus: 0, bufferSize: 2048, format: format) { [weak self] buf, _ in
@@ -58,6 +64,7 @@ final class AudioCapture {
 
         queue.async {
             self.buffer.append(data)
+            self.recordedBytes += data.count
             while self.buffer.count >= Self.chunkBytes {
                 let chunk = self.buffer.prefix(Self.chunkBytes)
                 self.buffer.removeFirst(Self.chunkBytes)

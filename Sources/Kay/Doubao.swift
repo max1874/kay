@@ -2,7 +2,31 @@ import Foundation
 
 struct KayError: LocalizedError {
     let message: String
+    /// The WebSocket upgrade's HTTP status, when Volcengine refused the connection.
+    var httpStatus: Int? = nil
     var errorDescription: String? { message }
+
+    var isAuthFailure: Bool { httpStatus == 401 || httpStatus == 403 }
+}
+
+/// Turns a failed connection into something the user can act on.
+enum DoubaoError {
+    static func message(status: Int?, error: Error?) -> String {
+        switch status {
+        case 401:
+            return String(localized: "Volcengine rejected this key. Make sure you copied the whole key from the new console.")
+        case 403:
+            return String(localized: "This key isn't enabled for Doubao Streaming ASR 2.0. Enable the service in the console, or switch the resource type.")
+        default:
+            break
+        }
+        let offline: [URLError.Code] = [.timedOut, .notConnectedToInternet, .cannotFindHost, .cannotConnectToHost,
+                                        .networkConnectionLost, .dnsLookupFailed, .secureConnectionFailed]
+        if let urlError = error as? URLError, offline.contains(urlError.code) {
+            return String(localized: "Couldn't reach Volcengine. Check your network or proxy.")
+        }
+        return error?.localizedDescription ?? String(localized: "Unknown error")
+    }
 }
 
 /// 豆包流式语音识别（一句话模式 bigmodel_nostream）的二进制帧。
@@ -20,7 +44,7 @@ enum DoubaoFrame {
     /// 返回 (是否最后一包, JSON)。服务端错误帧抛出异常。
     static func parse(_ data: Data) throws -> (isLast: Bool, json: [String: Any]?) {
         let b = [UInt8](data)
-        guard b.count >= 4 else { throw KayError(message: "响应帧过短") }
+        guard b.count >= 4 else { throw KayError(message: String(localized: "Malformed response from Volcengine.")) }
         let headerSize = Int(b[0] & 0x0F) * 4
         let type = b[1] >> 4, flags = b[1] & 0x0F
         var p = headerSize
@@ -28,13 +52,13 @@ enum DoubaoFrame {
         if type == 0b1111 {
             let code = u32(b, p), len = Int(u32(b, p + 4))
             let msg = String(decoding: b[(p + 8)..<min(b.count, p + 8 + len)], as: UTF8.self)
-            throw KayError(message: "服务端错误 \(code)：\(msg)")
+            throw KayError(message: "Volcengine \(code): \(msg)")
         }
         if flags & 0b0001 != 0 { p += 4 }  // sequence
-        guard b.count >= p + 4 else { throw KayError(message: "响应帧不完整") }
+        guard b.count >= p + 4 else { throw KayError(message: String(localized: "Malformed response from Volcengine.")) }
         let len = Int(u32(b, p))
         let payload = Data(b[(p + 4)..<min(b.count, p + 4 + len)])
-        guard b[2] & 0x0F == 0 else { throw KayError(message: "不支持的压缩格式") }
+        guard b[2] & 0x0F == 0 else { throw KayError(message: String(localized: "Malformed response from Volcengine.")) }
         let json = payload.isEmpty ? nil : try JSONSerialization.jsonObject(with: payload) as? [String: Any]
         return (flags & 0b0010 != 0, json)
     }
@@ -55,13 +79,23 @@ enum DoubaoFrame {
 /// 一次按住说话对应一个会话：按下时建连并边录边推流，松开时发负包并等待最终结果。
 final class DoubaoSession {
     private static let url = URL(string: "wss://openspeech.bytedance.com/api/v3/sauc/bigmodel_nostream")!
-    private static let request: Data = try! JSONSerialization.data(withJSONObject: [
+    private static let payload: Data = try! JSONSerialization.data(withJSONObject: [
         "user": ["uid": "kay"],
         "audio": ["format": "pcm", "codec": "raw", "rate": 16000, "bits": 16, "channel": 1],
         "request": ["model_name": "bigmodel", "enable_itn": true, "enable_punc": true, "enable_ddc": true],
     ])
 
+    /// The upgrade request; also what the Speech Service pane's test opens.
+    static func request(apiKey: String, resourceId: String) -> URLRequest {
+        var req = URLRequest(url: url, timeoutInterval: 10)
+        req.setValue(apiKey, forHTTPHeaderField: "X-Api-Key")
+        req.setValue(resourceId, forHTTPHeaderField: "X-Api-Resource-Id")
+        req.setValue(UUID().uuidString, forHTTPHeaderField: "X-Api-Connect-Id")
+        return req
+    }
+
     private let apiKey: String
+    private let resourceId: String
     private let queue = DispatchQueue(label: "kay.doubao")
     private var task: URLSessionWebSocketTask?
     private var latest = ""
@@ -69,20 +103,17 @@ final class DoubaoSession {
     private var earlyResult: Result<String, Error>?
     private var done = false
 
-    init(apiKey: String) {
+    init(apiKey: String, resourceId: String) {
         self.apiKey = apiKey
+        self.resourceId = resourceId
     }
 
     func start() {
-        var req = URLRequest(url: Self.url)
-        req.setValue(apiKey, forHTTPHeaderField: "X-Api-Key")
-        req.setValue("volc.seedasr.sauc.duration", forHTTPHeaderField: "X-Api-Resource-Id")
-        req.setValue(UUID().uuidString, forHTTPHeaderField: "X-Api-Connect-Id")
-        let task = URLSession.shared.webSocketTask(with: req)
+        let task = URLSession.shared.webSocketTask(with: Self.request(apiKey: apiKey, resourceId: resourceId))
         self.task = task
         task.resume()
         // 握手完成前的发送会排队，按顺序发出
-        send(DoubaoFrame.fullClientRequest(Self.request))
+        send(DoubaoFrame.fullClientRequest(Self.payload))
         receive()
     }
 
@@ -100,7 +131,7 @@ final class DoubaoSession {
             }
             self.send(DoubaoFrame.audio(lastChunk, last: true))
             self.queue.asyncAfter(deadline: .now() + timeout) {
-                self.complete(.failure(KayError(message: "识别超时")))
+                self.complete(.failure(KayError(message: String(localized: "Recognition timed out."))))
             }
         }
     }
@@ -115,7 +146,7 @@ final class DoubaoSession {
     private func send(_ data: Data) {
         task?.send(.data(data)) { [weak self] error in
             guard let self, let error else { return }
-            self.queue.async { self.complete(.failure(error)) }
+            self.queue.async { self.complete(.failure(self.describe(error))) }
         }
     }
 
@@ -137,10 +168,15 @@ final class DoubaoSession {
                 case .success:
                     self.receive()
                 case .failure(let error):
-                    self.complete(.failure(error))
+                    self.complete(.failure(self.describe(error)))
                 }
             }
         }
+    }
+
+    private func describe(_ error: Error) -> KayError {
+        let status = (task?.response as? HTTPURLResponse)?.statusCode
+        return KayError(message: DoubaoError.message(status: status, error: error), httpStatus: status)
     }
 
     /// 只在 queue 上调用。松开前出错会先暂存，等 finish 时再回调。
