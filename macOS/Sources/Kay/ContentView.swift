@@ -238,6 +238,30 @@ private struct StatTile: View {
 // MARK: - A dictation
 
 /// Click to copy; copy and delete also appear on hover. Failed ones say why.
+/// An icon button on a card: a 28 pt target with its own hover circle, so Copy and Delete can't be mistaken
+/// for each other (they sat 2 pt apart at icon size before 1.4.2).
+private struct CardAction: View {
+    let title: LocalizedStringKey
+    let symbol: String
+    let action: () -> Void
+    @State private var hovering = false
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: symbol)
+                .font(.system(size: 13, weight: .medium))
+                .frame(width: 28, height: 28)
+                .background(hovering ? AnyShapeStyle(.fill.secondary) : AnyShapeStyle(.clear), in: .circle)
+                .contentShape(.circle)
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(hovering ? .primary : .secondary)
+        .help(title)
+        .accessibilityLabel(title)
+        .onHover { hovering = $0 }
+    }
+}
+
 private struct EntryCard: View {
     let entry: HistoryEntry
     @ObservedObject private var model = AppModel.shared
@@ -275,15 +299,12 @@ private struct EntryCard: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
-            HStack(spacing: 2) {
+            HStack(spacing: 8) {
                 if entry.error == nil {
-                    Button("Copy", systemImage: "doc.on.doc", action: copy)
+                    CardAction(title: "Copy", symbol: "doc.on.doc", action: copy)
                 }
-                Button("Delete", systemImage: "trash") { model.delete(entry) }
+                CardAction(title: "Delete", symbol: "trash") { model.delete(entry) }
             }
-            .labelStyle(.iconOnly)
-            .buttonStyle(.borderless)
-            .foregroundStyle(.secondary)
             .opacity(hovering ? 1 : 0)
         }
         .padding(14)

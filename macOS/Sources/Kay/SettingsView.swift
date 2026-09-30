@@ -29,6 +29,7 @@ struct SettingsView: View {
 private struct GeneralSettings: View {
     @ObservedObject private var model = AppModel.shared
     @AppStorage(AppModel.menuBarIconKey) private var showMenuBarIcon = true
+    @AppStorage(AppModel.dockIconKey) private var showDockIcon = true
     @State private var confirmClear = false
 
     private var version: String {
@@ -68,11 +69,13 @@ private struct GeneralSettings: View {
                               granted: model.accessibility, action: model.openAccessibilitySettings)
             }
 
-            Section("App") {
+            Section {
                 Toggle("Open at Login", isOn: Binding(
                     get: { model.launchAtLogin },
                     set: { model.launchAtLogin = $0 }))
                 Toggle("Show in Menu Bar", isOn: $showMenuBarIcon)
+                Toggle("Show in Dock", isOn: $showDockIcon)
+                    .onChange(of: showDockIcon) { AppModel.applyDockIcon(showDockIcon) }
                 LabeledContent("History") {
                     HStack {
                         Button("Show in Finder") {
@@ -83,6 +86,12 @@ private struct GeneralSettings: View {
                     .disabled(model.history.isEmpty)
                 }
                 LabeledContent("Version") { Text(verbatim: version) }
+            } header: {
+                Text("App")
+            } footer: {
+                if !showDockIcon {
+                    Text("Without a Dock icon Kay opens straight into the background at launch. Open Kay again from Spotlight or Applications to bring this window back.")
+                }
             }
         }
         .formStyle(.grouped)

@@ -59,6 +59,8 @@
 "App" = "App";
 "Open at Login" = "Open at Login";
 "Show in Menu Bar" = "Show in Menu Bar";
+"Show in Dock" = "Show in Dock";
+"Without a Dock icon Kay opens straight into the background at launch. Open Kay again from Spotlight or Applications to bring this window back." = "Without a Dock icon Kay opens straight into the background at launch. Open Kay again from Spotlight or Applications to bring this window back.";
 "History" = "History";
 "Show in Finder" = "Show in Finder";
 "Version" = "Version";

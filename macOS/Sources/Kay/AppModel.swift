@@ -17,6 +17,18 @@ final class AppModel: ObservableObject {
     /// Read by `@AppStorage` in the App and Settings; the model never observes it, since the scene
     /// that binds it must not depend on this object (1.2.0 looped rebuilding the menu bar that way).
     static let menuBarIconKey = "showMenuBarIcon"
+    /// Off: no Dock icon, and no window at launch — Kay just waits for the key.
+    static let dockIconKey = "showDockIcon"
+
+    static var showsDockIcon: Bool {
+        UserDefaults.standard.object(forKey: dockIconKey) as? Bool ?? true
+    }
+
+    static func applyDockIcon(_ show: Bool) {
+        NSApp.setActivationPolicy(show ? .regular : .accessory)
+        // Leaving .regular deactivates the app; the window the change was made in stays in front.
+        NSApp.activate()
+    }
 
     @Published private(set) var state = State.idle
     @Published private(set) var history: [HistoryEntry] = []
@@ -41,6 +53,7 @@ final class AppModel: ObservableObject {
     private var session: DoubaoSession?
     private var pressedAt = Date()
     private var poll: Timer?
+    private var activation: NSObjectProtocol?
     private var speechChanges: AnyCancellable?
 
     var isReady: Bool {
@@ -60,13 +73,30 @@ final class AppModel: ObservableObject {
 
         if microphone == .notDetermined { requestMicrophone() }
         if !accessibility { promptAccessibility() }
-        // Both grants happen in System Settings; checking once a second is what turns the rows
-        // green without a relaunch, and what re-arms the hotkey once Accessibility arrives.
-        poll = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
+        pollWhileMissing()
+        // Coming back to Kay (after System Settings, say) is when a changed grant or 🌐 setting matters.
+        activation = NotificationCenter.default.addObserver(forName: NSApplication.didBecomeActiveNotification,
+                                                            object: nil, queue: .main) { [weak self] _ in
             self?.refreshPermissions()
+            self?.pollWhileMissing()
         }
         if speech.hasKey {
             Task { await speech.test(newKey: nil) }
+        }
+    }
+
+    /// Both grants happen in System Settings; checking once a second is what turns the rows green without a
+    /// relaunch, and what re-arms the hotkey once Accessibility arrives. Only until both are there: idle,
+    /// Kay should not wake up at all.
+    private func pollWhileMissing() {
+        guard poll == nil, microphone != .authorized || !accessibility else { return }
+        poll = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] timer in
+            guard let self else { return timer.invalidate() }
+            self.refreshPermissions()
+            if self.microphone == .authorized, self.accessibility {
+                timer.invalidate()
+                self.poll = nil
+            }
         }
     }
 

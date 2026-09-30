@@ -35,6 +35,9 @@ enum Trigger: String, CaseIterable, Identifiable {
 
 /// 监听「按住触发键」。按住期间如果按了其他键，视为组合键（如 fn+↑、⌥ 打特殊字符），触发 onInterrupt。
 /// 全局监听键盘事件需要辅助功能权限；授权后需重新注册监听才生效。
+///
+/// Idle, Kay listens to modifier changes only. The key-down monitor, which would otherwise wake it for every
+/// keystroke in every app, exists only while the trigger is held.
 final class HotkeyMonitor {
     var onPress: (() -> Void)?
     var onRelease: (() -> Void)?
@@ -47,24 +50,38 @@ final class HotkeyMonitor {
         }
     }
 
-    private var monitors: [Any] = []
-    private var isDown = false
+    private var flagMonitors: [Any] = []
+    private var keyMonitors: [Any] = []
+    private var isDown = false {
+        didSet { if isDown != oldValue { isDown ? watchKeys() : unwatchKeys() } }
+    }
 
     func start() {
         stop()
         let flags: (NSEvent) -> Void = { [weak self] in self?.handleFlags($0) }
-        let keyDown: (NSEvent) -> Void = { [weak self] _ in self?.handleKeyDown() }
-        monitors = [
+        flagMonitors = [
             NSEvent.addGlobalMonitorForEvents(matching: .flagsChanged, handler: flags),
             NSEvent.addLocalMonitorForEvents(matching: .flagsChanged) { flags($0); return $0 },
+        ].compactMap { $0 }
+    }
+
+    func stop() {
+        flagMonitors.forEach(NSEvent.removeMonitor)
+        flagMonitors = []
+        isDown = false
+    }
+
+    private func watchKeys() {
+        let keyDown: (NSEvent) -> Void = { [weak self] _ in self?.handleKeyDown() }
+        keyMonitors = [
             NSEvent.addGlobalMonitorForEvents(matching: .keyDown, handler: keyDown),
             NSEvent.addLocalMonitorForEvents(matching: .keyDown) { keyDown($0); return $0 },
         ].compactMap { $0 }
     }
 
-    func stop() {
-        monitors.forEach(NSEvent.removeMonitor)
-        monitors = []
+    private func unwatchKeys() {
+        keyMonitors.forEach(NSEvent.removeMonitor)
+        keyMonitors = []
     }
 
     private func handleFlags(_ event: NSEvent) {
@@ -76,6 +93,8 @@ final class HotkeyMonitor {
     }
 
     private func handleKeyDown() {
-        if isDown { onInterrupt?() }
+        guard isDown else { return }
+        isDown = false
+        onInterrupt?()
     }
 }

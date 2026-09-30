@@ -13,6 +13,8 @@ struct KayApp: App {
         }
         .defaultSize(width: 760, height: 680)
         .windowResizability(.contentMinSize)
+        // Read once: this scene must not depend on changing state (see showMenuBarIcon).
+        .defaultLaunchBehavior(AppModel.showsDockIcon ? .automatic : .suppressed)
         .commands {
             CommandGroup(replacing: .newItem) {}
         }
@@ -34,6 +36,10 @@ struct KayApp: App {
 }
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
+    func applicationWillFinishLaunching(_ notification: Notification) {
+        if !AppModel.showsDockIcon { NSApp.setActivationPolicy(.accessory) }
+    }
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         AppModel.shared.start()
     }
