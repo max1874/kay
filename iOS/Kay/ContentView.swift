@@ -53,7 +53,13 @@ struct ContentView: View {
                 } header: {
                     Text("Volcengine Doubao")
                 } footer: {
-                    Text("Your own key, kept in the Keychain. Audio goes straight to Volcengine.")
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Kay uses Doubao Streaming ASR 2.0 with your own Volcengine key. Create one in the console and make sure the service is enabled. The key stays in the Keychain; audio goes straight to Volcengine.")
+                        HStack(spacing: 16) {
+                            Link("Get an API Key ↗", destination: SpeechService.apiKeysURL)
+                            Link("Enable the Service ↗", destination: SpeechService.activateURL)
+                        }
+                    }
                 }
 
                 Section("History") {
