@@ -28,6 +28,7 @@ struct SettingsView: View {
 
 private struct GeneralSettings: View {
     @ObservedObject private var model = AppModel.shared
+    @AppStorage(AppModel.menuBarIconKey) private var showMenuBarIcon = true
 
     private var version: String {
         let info = Bundle.main.infoDictionary
@@ -39,13 +40,26 @@ private struct GeneralSettings: View {
     var body: some View {
         Form {
             Section {
-                LabeledContent("Hold to talk") {
-                    Text("Right Option ⌥")
+                Picker("Hold to talk", selection: $model.trigger) {
+                    Text("fn (🌐)").tag(Trigger.fn)
+                    Text("Right Option ⌥").tag(Trigger.rightOption)
+                }
+                if model.globeKeyConflict {
+                    LabeledContent {
+                        Button("Open Keyboard Settings", action: model.openKeyboardSettings)
+                    } label: {
+                        Label {
+                            Text("Set “Press 🌐 key to” to “Do Nothing”")
+                            Text("Otherwise macOS also acts on fn every time you dictate.")
+                        } icon: {
+                            Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
+                        }
+                    }
                 }
             } header: {
                 Text("Shortcut")
             } footer: {
-                Text("Pressing any other key while you hold it cancels the recording, so ⌥ shortcuts keep working.")
+                Text("Pressing any other key while you hold it cancels the recording, so shortcuts that use the same key keep working.")
                     .foregroundStyle(.secondary)
             }
 
@@ -60,7 +74,7 @@ private struct GeneralSettings: View {
                 Toggle("Open at Login", isOn: Binding(
                     get: { model.launchAtLogin },
                     set: { model.launchAtLogin = $0 }))
-                Toggle("Show in Menu Bar", isOn: $model.showMenuBarIcon)
+                Toggle("Show in Menu Bar", isOn: $showMenuBarIcon)
                 LabeledContent("History") {
                     Button("Show in Finder") {
                         NSWorkspace.shared.activateFileViewerSelecting([HistoryStore.url])

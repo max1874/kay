@@ -3,7 +3,9 @@ import SwiftUI
 
 struct KayApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
-    @ObservedObject private var model = AppModel.shared
+    // Only this, never AppModel: the scene body re-runs whenever what it reads changes, and binding a
+    // scene to the model made each menu-bar refresh publish a change that refreshed it again.
+    @AppStorage(AppModel.menuBarIconKey) private var showMenuBarIcon = true
 
     var body: some Scene {
         Window("Kay", id: KayApp.mainWindow) {
@@ -19,10 +21,12 @@ struct KayApp: App {
             SettingsView()
         }
 
-        MenuBarExtra(isInserted: $model.showMenuBarIcon) {
+        // MenuBarExtra writes the binding back as it updates; only a real change may reach storage.
+        MenuBarExtra(isInserted: Binding(get: { showMenuBarIcon },
+                                         set: { if $0 != showMenuBarIcon { showMenuBarIcon = $0 } })) {
             MenuBarMenu()
         } label: {
-            Image(systemName: model.state == .idle ? "waveform" : "waveform.badge.mic")
+            MenuBarIcon()
         }
     }
 
@@ -37,6 +41,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Dictation lives on the hotkey, not the window: closing it must not quit.
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         false
+    }
+}
+
+private struct MenuBarIcon: View {
+    @ObservedObject private var model = AppModel.shared
+
+    var body: some View {
+        Image(systemName: model.state == .idle ? "waveform" : "waveform.badge.mic")
     }
 }
 

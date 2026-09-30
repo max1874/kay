@@ -14,7 +14,9 @@ final class AppModel: ObservableObject {
 
     /// 按住不足这个时长视为误触，不识别。
     private static let minHold: TimeInterval = 0.3
-    private static let menuBarIconKey = "showMenuBarIcon"
+    /// Read by `@AppStorage` in the App and Settings; the model never observes it, since the scene
+    /// that binds it must not depend on this object (1.2.0 looped rebuilding the menu bar that way).
+    static let menuBarIconKey = "showMenuBarIcon"
     /// How many recent levels the live waveform keeps.
     static let levelCount = 64
 
@@ -28,9 +30,17 @@ final class AppModel: ObservableObject {
     @Published private(set) var latestEntryID: HistoryEntry.ID?
     @Published private(set) var microphone = AVCaptureDevice.authorizationStatus(for: .audio)
     @Published private(set) var accessibility = AXIsProcessTrusted()
-    @Published var showMenuBarIcon = UserDefaults.standard.object(forKey: AppModel.menuBarIconKey) as? Bool ?? true {
-        didSet { UserDefaults.standard.set(showMenuBarIcon, forKey: Self.menuBarIconKey) }
+    @Published var trigger = Trigger(rawValue: UserDefaults.standard.string(forKey: Trigger.defaultsKey) ?? "") ?? .fn {
+        didSet {
+            guard trigger != oldValue else { return }
+            UserDefaults.standard.set(trigger.rawValue, forKey: Trigger.defaultsKey)
+            hotkey.trigger = trigger
+            refreshGlobeKey()
+        }
     }
+    /// fn is also the 🌐 key. Unless Keyboard settings say "Press 🌐 key to: Do Nothing", macOS acts on
+    /// every press too (emoji picker, input source, system dictation) and fights with Kay.
+    @Published private(set) var globeKeyConflict = false
 
     let speech = SpeechService.shared
     private lazy var hud = HUD()
@@ -42,7 +52,7 @@ final class AppModel: ObservableObject {
     private var speechChanges: AnyCancellable?
 
     var isReady: Bool {
-        microphone == .authorized && accessibility && speech.status.isUsable
+        microphone == .authorized && accessibility && speech.status.isUsable && !globeKeyConflict
     }
 
     func start() {
@@ -52,7 +62,9 @@ final class AppModel: ObservableObject {
         hotkey.onPress = { [weak self] in self?.begin() }
         hotkey.onRelease = { [weak self] in self?.end() }
         hotkey.onInterrupt = { [weak self] in self?.cancel() }
+        hotkey.trigger = trigger
         hotkey.start()
+        refreshGlobeKey()
 
         if microphone == .notDetermined { requestMicrophone() }
         if !accessibility { promptAccessibility() }
@@ -67,6 +79,7 @@ final class AppModel: ObservableObject {
     }
 
     private func refreshPermissions() {
+        refreshGlobeKey()
         let mic = AVCaptureDevice.authorizationStatus(for: .audio)
         if mic != microphone { microphone = mic }
         let trusted = AXIsProcessTrusted()
@@ -77,6 +90,20 @@ final class AppModel: ObservableObject {
                 log.notice("accessibility granted, hotkey monitor restarted")
             }
         }
+    }
+
+    /// `AppleFnUsageType` in com.apple.HIToolbox: 0 Do Nothing, 1 Change Input Source,
+    /// 2 Show Emoji & Symbols, 3 Start Dictation. Missing means the system default, which is not 0.
+    private func refreshGlobeKey() {
+        let domain = "com.apple.HIToolbox" as CFString
+        CFPreferencesAppSynchronize(domain)
+        let usage = CFPreferencesCopyAppValue("AppleFnUsageType" as CFString, domain) as? Int
+        let conflict = trigger == .fn && usage != 0
+        if conflict != globeKeyConflict { globeKeyConflict = conflict }
+    }
+
+    func openKeyboardSettings() {
+        NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.Keyboard-Settings.extension")!)
     }
 
     // MARK: - Permissions

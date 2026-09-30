@@ -23,7 +23,7 @@ struct ContentView: View {
         }
         .navigationTitle("Kay")
         .frame(minWidth: 760, minHeight: 500)
-        .toolbar { KayToolbar(state: model.state, isReady: model.isReady, selection: $selection) }
+        .toolbar { KayToolbar(state: model.state, isReady: model.isReady, trigger: model.trigger, selection: $selection) }
         .onChange(of: model.latestEntryID) { _, id in
             if let id { selection = .entry(id) }
         }
@@ -50,6 +50,7 @@ struct ContentView: View {
 private struct KayToolbar: ToolbarContent {
     let state: AppModel.State
     let isReady: Bool
+    let trigger: Trigger
     @Binding var selection: SidebarItem?
 
     var body: some ToolbarContent {
@@ -70,7 +71,7 @@ private struct KayToolbar: ToolbarContent {
                 .help("Kay needs a few things before it can dictate")
             } else {
                 Label {
-                    Text("Hold Right ⌥ to Talk")
+                    Text("Hold \(trigger.name) to Talk")
                 } icon: {
                     Image(systemName: "waveform")
                 }
@@ -199,9 +200,9 @@ private struct HomeView: View {
         ScrollView {
             VStack(spacing: 32) {
                 VStack(spacing: 18) {
-                    KeyCap(active: model.isReady)
+                    KeyCap(trigger: model.trigger, active: model.isReady)
                     VStack(spacing: 8) {
-                        Text(model.isReady ? LocalizedStringKey("Hold Right Option to Dictate") : "Finish Setting Up Kay")
+                        Text(model.isReady ? LocalizedStringKey("Hold \(model.trigger.name) to Dictate") : "Finish Setting Up Kay")
                             .font(.largeTitle.weight(.bold))
                         Text("Speak while you hold it. Let go, and the text appears where your cursor is, in any app.")
                             .font(.title3)
@@ -219,8 +220,14 @@ private struct HomeView: View {
                                   action: "Allow", perform: model.requestMicrophone)
                         SetupCard(done: model.accessibility, symbol: "accessibility", tint: .blue,
                                   title: "Accessibility",
-                                  detail: Text("Lets Kay notice Right Option and paste the text for you."),
+                                  detail: Text("Lets Kay notice the dictation key and paste the text for you."),
                                   action: "Open System Settings", perform: model.openAccessibilitySettings)
+                        if model.trigger == .fn {
+                            SetupCard(done: !model.globeKeyConflict, symbol: "globe", tint: .teal,
+                                      title: "Globe Key",
+                                      detail: Text("In Keyboard settings, set “Press 🌐 key to” to “Do Nothing”, so macOS doesn't also act on fn while you dictate."),
+                                      action: "Open Keyboard Settings", perform: model.openKeyboardSettings)
+                        }
                         SetupCard(done: speech.status.isUsable, symbol: "key.fill", tint: .purple,
                                   title: "Speech Service", detail: speech.status.summary(maskedKey: speech.maskedKey),
                                   action: "Add API Key") {
@@ -254,20 +261,37 @@ private struct HomeView: View {
     }
 }
 
-/// The key you hold, drawn as a keycap.
+/// The key you hold, drawn as the keycap on a Mac keyboard.
 private struct KeyCap: View {
+    let trigger: Trigger
     let active: Bool
 
     var body: some View {
-        VStack(alignment: .trailing, spacing: 10) {
-            Text(verbatim: "⌥")
-                .font(.system(size: 30, weight: .regular))
-            Text(verbatim: "option")
-                .font(.system(size: 13, weight: .medium))
+        Group {
+            switch trigger {
+            case .fn:
+                // fn top right, 🌐 bottom left, as printed on the key.
+                VStack(alignment: .leading, spacing: 0) {
+                    Text(verbatim: "fn")
+                        .font(.system(size: 15, weight: .medium))
+                        .frame(maxWidth: .infinity, alignment: .trailing)
+                    Spacer(minLength: 0)
+                    Image(systemName: "globe")
+                        .font(.system(size: 22, weight: .regular))
+                }
+            case .rightOption:
+                VStack(alignment: .trailing, spacing: 10) {
+                    Text(verbatim: "⌥")
+                        .font(.system(size: 30, weight: .regular))
+                    Text(verbatim: "option")
+                        .font(.system(size: 13, weight: .medium))
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+            }
         }
         .foregroundStyle(active ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary))
         .padding(14)
-        .frame(width: 124, height: 96, alignment: .bottomTrailing)
+        .frame(width: 96, height: 96)
         .glassEffect(.regular.tint(active ? Color.pink.opacity(0.25) : nil), in: .rect(cornerRadius: 18))
     }
 }
@@ -473,7 +497,7 @@ private struct LiveView: View {
                 .padding(.top, 20)
 
             Text(model.state == .recording
-                 ? LocalizedStringKey("Let go of Right Option to finish. Press any other key to cancel.")
+                 ? LocalizedStringKey("Let go of \(model.trigger.name) to finish. Press any other key to cancel.")
                  : "Recognizing…")
                 .font(.callout)
                 .foregroundStyle(.secondary)
