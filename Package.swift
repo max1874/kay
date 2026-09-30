@@ -10,6 +10,9 @@ let package = Package(
         .executableTarget(
             name: "Kay",
             path: ".",
+            // Everything else under the root is not the package's business. Without this SwiftPM also
+            // picks up the .lproj folders (macOS/Resources, build/Kay.app) as package resources and refuses.
+            exclude: ["macOS/Resources", "macOS/scripts", "build", "tools", "README.md", "LICENSE", "Makefile"],
             sources: ["macOS/Sources/Kay", "Shared"],
             swiftSettings: [.swiftLanguageMode(.v5)]
         )
