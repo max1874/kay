@@ -2,9 +2,7 @@
 
 /* Shortcut */
 "Right Option" = "右 Option";
-"Hold %@ to Talk" = "按住 %@ 说话";
 "Hold %@ to Dictate" = "按住 %@ 开始听写";
-"Let go of %@ to finish. Press any other key to cancel." = "松开 %@ 结束，按其他任意键取消。";
 "Lets Kay notice the dictation key and paste the text for you." = "用来识别听写快捷键，并把文字粘贴到光标处。";
 "fn (🌐)" = "fn（🌐）";
 "If the emoji picker or another input source shows up after you let go of fn, set “Press 🌐 key to” to “Do Nothing”." = "如果松开 fn 后弹出了表情面板或切换了输入法，把「按下 🌐 键时」设为「不执行任何操作」。";
@@ -17,22 +15,20 @@
 "Quit Kay" = "退出 Kay";
 
 /* Main window */
-"Listening" = "正在听";
-"Finish Setup" = "完成设置";
-"Kay needs a few things before it can dictate" = "Kay 还需要几项设置才能听写";
 "Settings" = "设置";
 "Speech service, shortcut and permissions" = "语音服务、快捷键和权限";
-"Home" = "首页";
 "Search Dictations" = "搜索听写";
-"No Dictations Yet" = "还没有听写记录";
+"No dictations yet. Hold %@ and say something." = "还没有听写记录。按住 %@ 说句话试试。";
+"Listening…" = "正在听…";
+"Clear All…" = "全部清除…";
+"Delete all dictation history?" = "删除全部听写历史？";
+"Delete All" = "全部删除";
+"This can't be undone." = "此操作无法撤销。";
 "Copy" = "拷贝";
 "Copied" = "已拷贝";
-"Copy (⇧⌘C)" = "拷贝（⇧⌘C）";
 "Delete" = "删除";
 "Today" = "今天";
 "Yesterday" = "昨天";
-"%lld characters" = "%lld 字";
-"recognized in %lld ms" = "识别用时 %lld ms";
 
 /* Home */
 "Finish Setting Up Kay" = "完成 Kay 的设置";

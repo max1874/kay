@@ -17,17 +17,9 @@ final class AppModel: ObservableObject {
     /// Read by `@AppStorage` in the App and Settings; the model never observes it, since the scene
     /// that binds it must not depend on this object (1.2.0 looped rebuilding the menu bar that way).
     static let menuBarIconKey = "showMenuBarIcon"
-    /// How many recent levels the live waveform keeps.
-    static let levelCount = 64
 
     @Published private(set) var state = State.idle
     @Published private(set) var history: [HistoryEntry] = []
-    /// When the current dictation started; nil when idle.
-    @Published private(set) var startedAt: Date?
-    /// Recent input levels, oldest first, while recording.
-    @Published private(set) var levels: [Float] = []
-    /// The entry the last dictation produced, so the window can select it.
-    @Published private(set) var latestEntryID: HistoryEntry.ID?
     @Published private(set) var microphone = AVCaptureDevice.authorizationStatus(for: .audio)
     @Published private(set) var accessibility = AXIsProcessTrusted()
     @Published var trigger = Trigger(rawValue: UserDefaults.standard.string(forKey: Trigger.defaultsKey) ?? "") ?? .fn {
@@ -177,7 +169,6 @@ final class AppModel: ObservableObject {
 
     private func record(_ entry: HistoryEntry) {
         history.insert(entry, at: 0)
-        latestEntryID = entry.id
         if history.count > HistoryStore.limit { history.removeLast(history.count - HistoryStore.limit) }
         HistoryStore.save(history)
     }
@@ -203,8 +194,6 @@ final class AppModel: ObservableObject {
         capture.onLevel = { [weak self] level in
             DispatchQueue.main.async {
                 guard let self, self.state == .recording else { return }
-                self.levels.append(level)
-                if self.levels.count > Self.levelCount { self.levels.removeFirst(self.levels.count - Self.levelCount) }
                 self.hud.level(level)
             }
         }
@@ -220,8 +209,6 @@ final class AppModel: ObservableObject {
         self.session = session
         self.capture = capture
         pressedAt = Date()
-        startedAt = pressedAt
-        levels = []
         state = .recording
         hud.listen(since: pressedAt)
     }
@@ -250,7 +237,6 @@ final class AppModel: ObservableObject {
     private func deliver(_ result: Result<String, Error>, audioSeconds: Double, latency: TimeInterval) {
         session = nil
         state = .idle
-        startedAt = nil
         let ms = Int(latency * 1000)
         switch result {
         case .success(let raw):
@@ -286,7 +272,6 @@ final class AppModel: ObservableObject {
         session?.cancel()
         session = nil
         state = .idle
-        startedAt = nil
         hud.hide()
     }
 }

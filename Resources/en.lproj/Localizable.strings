@@ -2,9 +2,7 @@
 
 /* Shortcut */
 "Right Option" = "Right Option";
-"Hold %@ to Talk" = "Hold %@ to Talk";
 "Hold %@ to Dictate" = "Hold %@ to Dictate";
-"Let go of %@ to finish. Press any other key to cancel." = "Let go of %@ to finish. Press any other key to cancel.";
 "Lets Kay notice the dictation key and paste the text for you." = "Lets Kay notice the dictation key and paste the text for you.";
 "fn (🌐)" = "fn (🌐)";
 "If the emoji picker or another input source shows up after you let go of fn, set “Press 🌐 key to” to “Do Nothing”." = "If the emoji picker or another input source shows up after you let go of fn, set “Press 🌐 key to” to “Do Nothing”.";
@@ -17,22 +15,20 @@
 "Quit Kay" = "Quit Kay";
 
 /* Main window */
-"Listening" = "Listening";
-"Finish Setup" = "Finish Setup";
-"Kay needs a few things before it can dictate" = "Kay needs a few things before it can dictate";
 "Settings" = "Settings";
 "Speech service, shortcut and permissions" = "Speech service, shortcut and permissions";
-"Home" = "Home";
 "Search Dictations" = "Search Dictations";
-"No Dictations Yet" = "No Dictations Yet";
+"No dictations yet. Hold %@ and say something." = "No dictations yet. Hold %@ and say something.";
+"Listening…" = "Listening…";
+"Clear All…" = "Clear All…";
+"Delete all dictation history?" = "Delete all dictation history?";
+"Delete All" = "Delete All";
+"This can't be undone." = "This can't be undone.";
 "Copy" = "Copy";
 "Copied" = "Copied";
-"Copy (⇧⌘C)" = "Copy (⇧⌘C)";
 "Delete" = "Delete";
 "Today" = "Today";
 "Yesterday" = "Yesterday";
-"%lld characters" = "%lld characters";
-"recognized in %lld ms" = "recognized in %lld ms";
 
 /* Home */
 "Finish Setting Up Kay" = "Finish Setting Up Kay";

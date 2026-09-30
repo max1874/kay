@@ -11,7 +11,7 @@ struct KayApp: App {
         Window("Kay", id: KayApp.mainWindow) {
             ContentView()
         }
-        .defaultSize(width: 960, height: 620)
+        .defaultSize(width: 760, height: 680)
         .windowResizability(.contentMinSize)
         .commands {
             CommandGroup(replacing: .newItem) {}

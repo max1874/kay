@@ -149,8 +149,8 @@ private struct HUDView: View {
     }
 }
 
-/// Bars for recent input levels, newest on the right. Shared by the HUD and the window's live view.
-struct LevelBars: View {
+/// Bars for recent input levels, newest on the right.
+private struct LevelBars: View {
     let levels: [Float]
     var tint: Color = .red
     var barWidth: CGFloat = 4

@@ -29,6 +29,7 @@ struct SettingsView: View {
 private struct GeneralSettings: View {
     @ObservedObject private var model = AppModel.shared
     @AppStorage(AppModel.menuBarIconKey) private var showMenuBarIcon = true
+    @State private var confirmClear = false
 
     private var version: String {
         let info = Bundle.main.infoDictionary
@@ -73,8 +74,11 @@ private struct GeneralSettings: View {
                     set: { model.launchAtLogin = $0 }))
                 Toggle("Show in Menu Bar", isOn: $showMenuBarIcon)
                 LabeledContent("History") {
-                    Button("Show in Finder") {
-                        NSWorkspace.shared.activateFileViewerSelecting([HistoryStore.url])
+                    HStack {
+                        Button("Show in Finder") {
+                            NSWorkspace.shared.activateFileViewerSelecting([HistoryStore.url])
+                        }
+                        Button("Clear All…", role: .destructive) { confirmClear = true }
                     }
                     .disabled(model.history.isEmpty)
                 }
@@ -83,6 +87,11 @@ private struct GeneralSettings: View {
         }
         .formStyle(.grouped)
         .fixedSize(horizontal: false, vertical: true)
+        .confirmationDialog("Delete all dictation history?", isPresented: $confirmClear) {
+            Button("Delete All", role: .destructive) { model.clearHistory() }
+        } message: {
+            Text("This can't be undone.")
+        }
     }
 }
 
