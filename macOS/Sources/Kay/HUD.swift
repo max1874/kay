@@ -5,6 +5,10 @@ import SwiftUI
 /// about to land in whatever app you are typing in, and that app has to stay frontmost.
 final class HUD {
     private let content = HUDState()
+    /// Measures the capsule for the current mode. `NSView.fittingSize` is the *smallest* size that fits, and
+    /// SwiftUI lets text shrink to nothing: "Recognizing…" was laid out 0 pt wide, leaving a 60 pt capsule
+    /// with the spinner off to one side (1.4.2–1.4.3). This asks for the size the content wants instead.
+    private lazy var measure = NSHostingController(rootView: HUDView(state: content))
     private var panel: NSPanel?
     private var hideWork: DispatchWorkItem?
 
@@ -51,11 +55,7 @@ final class HUD {
         let panel = panel ?? make()
         self.panel = panel
         content.mode = mode
-        if let host = panel.contentView {
-            host.layoutSubtreeIfNeeded()
-            panel.setContentSize(host.fittingSize)
-        }
-        place(panel)
+        place(panel, size: measure.sizeThatFits(in: CGSize(width: 560, height: 240)))
         if !panel.isVisible || panel.alphaValue < 1 {
             panel.alphaValue = 0
             panel.orderFrontRegardless()
@@ -92,12 +92,14 @@ final class HUD {
         return panel
     }
 
-    /// Above the Dock on the screen the pointer is on.
-    private func place(_ panel: NSPanel) {
+    /// Above the Dock on the screen the pointer is on, centered; size and position in one step.
+    private func place(_ panel: NSPanel, size: CGSize) {
         let mouse = NSEvent.mouseLocation
         let screen = NSScreen.screens.first { $0.frame.contains(mouse) } ?? NSScreen.main
         guard let visible = screen?.visibleFrame else { return }
-        panel.setFrameOrigin(CGPoint(x: visible.midX - panel.frame.width / 2, y: visible.minY + 56))
+        let size = CGSize(width: ceil(size.width), height: ceil(size.height))
+        panel.setFrame(CGRect(x: (visible.midX - size.width / 2).rounded(), y: visible.minY + 56,
+                              width: size.width, height: size.height), display: true)
     }
 }
 

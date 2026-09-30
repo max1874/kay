@@ -15,6 +15,9 @@ struct KayApp: App {
         .windowResizability(.contentMinSize)
         // Read once: this scene must not depend on changing state (see showMenuBarIcon).
         .defaultLaunchBehavior(AppModel.showsDockIcon ? .automatic : .suppressed)
+        // kay://main opens it. SwiftUI didn't bring a suppressed window back on its own when Kay was opened
+        // again (1.4.2–1.4.3), and nothing outside a view can call openWindow.
+        .handlesExternalEvents(matching: [KayApp.mainWindow])
         .commands {
             CommandGroup(replacing: .newItem) {}
         }
@@ -33,6 +36,11 @@ struct KayApp: App {
     }
 
     static let mainWindow = "main"
+
+    static func showMainWindow() {
+        NSApp.activate()
+        NSWorkspace.shared.open(URL(string: "kay://\(mainWindow)")!)
+    }
 }
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
@@ -42,6 +50,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         AppModel.shared.start()
+    }
+
+    /// Clicking the Dock icon, or opening Kay again from Spotlight or Finder, with no window up.
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows: Bool) -> Bool {
+        if !hasVisibleWindows { KayApp.showMainWindow() }
+        return false
     }
 
     /// Dictation lives on the hotkey, not the window: closing it must not quit.
