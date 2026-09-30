@@ -12,7 +12,7 @@ import UIKit
 /// `allowedExecutionTargets` pins it to the app's process, so the extension's copy never runs, hence
 /// `KAY_WIDGET`. Without it iOS 27 performed the control's press in the extension, where it did nothing
 /// (2026-09-30, iPhone 17 Pro).
-struct ToggleDictationIntent: AudioRecordingIntent {
+struct ToggleDictationIntent: AudioRecordingIntent, LiveActivityIntent {
     static let title: LocalizedStringResource = "Dictate with Kay"
     static let description = IntentDescription("Start or stop a dictation. When it stops, the text is copied to the clipboard.")
     static let openAppWhenRun = false

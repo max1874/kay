@@ -46,7 +46,7 @@ final class DictationController: ObservableObject {
 
         let audio = AVAudioSession.sharedInstance()
         do {
-            try audio.setCategory(.record, mode: .default)
+            try audio.setCategory(.record, mode: .default, options: [.mixWithOthers])
             try audio.setActive(true)
         } catch {
             Trace.log("setActive failed: \(error as NSError)")
