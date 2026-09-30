@@ -45,6 +45,20 @@ final class DictationController: ObservableObject {
         }
     }
 
+    #if DEBUG
+    /// Puts up a Live Activity in `phase` without recording, to look at it on a device:
+    /// `devicectl device process launch … com.max1874.kay -KayDemo listening`. `end` takes it down.
+    func demo(_ name: String) async {
+        for activity in Activity<DictationActivityAttributes>.activities {
+            await activity.end(nil, dismissalPolicy: .immediate)
+        }
+        guard let phase = DictationActivityAttributes.ContentState.Phase(rawValue: name) else { return }
+        let message = phase == .failed ? "The microphone didn't start." : "今天下午三点在会议室开会，记得带上 MacBook 和那份 roadmap。"
+        let state = DictationActivityAttributes.ContentState(phase: phase, startedAt: Date().addingTimeInterval(-12), message: message)
+        _ = try? Activity.request(attributes: DictationActivityAttributes(), content: .init(state: state, staleDate: nil))
+    }
+    #endif
+
     /// Called when Kay comes to the foreground.
     func becameActive() {
         guard let text = pendingCopy else { return }
