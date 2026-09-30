@@ -20,19 +20,24 @@ struct ToggleDictationIntent: AudioRecordingIntent, LiveActivityIntent {
     @available(iOS 27.0, *)
     static var allowedExecutionTargets: IntentExecutionTargets { .main }
 
+    /// Returns the text on the press that stops, empty on the one that starts. iOS keeps the clipboard from
+    /// Kay in the background (changeCount stays 0, 2026-09-30), but not from Shortcuts: a shortcut of this
+    /// action followed by Copy to Clipboard gets the text there.
     @MainActor
-    func perform() async throws -> some IntentResult {
+    func perform() async throws -> some IntentResult & ReturnsValue<String> {
         #if !KAY_WIDGET
         let dictation = DictationController.shared
         Trace.log("perform: state=\(dictation.state) appState=\(UIApplication.shared.applicationState.rawValue)")
         do {
-            try await dictation.toggle()
-            Trace.log("perform: done, state=\(dictation.state)")
+            let text = try await dictation.toggle()
+            Trace.log("perform: done, state=\(dictation.state), returned \(text?.count ?? 0) chars")
+            return .result(value: text ?? "")
         } catch {
             Trace.log("perform: threw \(error)")
             throw error
         }
+        #else
+        return .result(value: "")
         #endif
-        return .result()
     }
 }

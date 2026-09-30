@@ -41,17 +41,13 @@ struct DictationLiveActivity: Widget {
             } compactLeading: {
                 Glyph(phase: state.phase)
             } compactTrailing: {
-                switch state.phase {
-                case .listening:
+                // Only listening and transcribing reach the island: an ended activity leaves it at once.
+                if state.phase == .listening {
                     Clock(startedAt: state.startedAt)
                         .foregroundStyle(.red)
-                        .frame(width: 42, alignment: .trailing)
-                case .copied:
-                    Text("Copied").font(.caption2.weight(.semibold)).foregroundStyle(.green)
-                case .tapToCopy:
-                    Text("Tap").font(.caption2.weight(.semibold)).foregroundStyle(.blue)
-                case .recognizing, .failed:
-                    EmptyView()
+                        .frame(maxWidth: 44)
+                } else {
+                    Image(systemName: "ellipsis").foregroundStyle(.secondary)
                 }
             } minimal: {
                 Glyph(phase: state.phase)
@@ -150,13 +146,13 @@ private struct Caption: View {
     }
 }
 
-/// The running clock. `timerInterval` keeps the text as wide as its figures, unlike `.timer`, which
-/// claims the whole width in the compact island.
+/// The running clock, `.timer` style. With `Text(timerInterval: start...distantFuture)` instead the
+/// Dynamic Island stopped showing (Lock Screen fine), 2026-09-30.
 private struct Clock: View {
     let startedAt: Date
 
     var body: some View {
-        Text(timerInterval: startedAt...Date.distantFuture, countsDown: false)
+        Text(startedAt, style: .timer)
             .monospacedDigit()
             .multilineTextAlignment(.trailing)
     }

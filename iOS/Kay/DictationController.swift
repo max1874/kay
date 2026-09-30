@@ -37,11 +37,13 @@ final class DictationController: ObservableObject {
         }
     }
 
-    func toggle() async throws {
+    /// Returns the text when this press stopped a dictation, nil when it started one.
+    @discardableResult
+    func toggle() async throws -> String? {
         switch state {
-        case .idle: try start()
-        case .recording: await stop()
-        case .recognizing: break
+        case .idle: try start(); return nil
+        case .recording: return await stop()
+        case .recognizing: return nil
         }
     }
 
@@ -112,8 +114,10 @@ final class DictationController: ObservableObject {
         state = .recording
     }
 
-    func stop() async {
-        guard state == .recording, let session, let capture else { return }
+    /// The recognized text, nil if nothing came of it.
+    @discardableResult
+    func stop() async -> String? {
+        guard state == .recording, let session, let capture else { return nil }
         let rest = capture.stop()
         let seconds = capture.recordedSeconds
         self.capture = nil
@@ -136,7 +140,7 @@ final class DictationController: ObservableObject {
             let text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !text.isEmpty else {
                 await endActivity(.failed, message: String(localized: "Didn't catch that."))
-                return
+                return nil
             }
             let pasteboard = UIPasteboard.general
             let before = pasteboard.changeCount
@@ -150,6 +154,7 @@ final class DictationController: ObservableObject {
                 pendingCopy = text
                 await endActivity(.tapToCopy, message: text)
             }
+            return text
         case .failure(let error):
             let message = error.localizedDescription
             lastError = message
@@ -158,6 +163,7 @@ final class DictationController: ObservableObject {
             }
             record(HistoryEntry(date: Date(), text: "", audioSeconds: seconds, latencyMs: nil, error: message))
             await endActivity(.failed, message: message)
+            return nil
         }
     }
 
