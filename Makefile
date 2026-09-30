@@ -1,18 +1,22 @@
-.PHONY: app release install icon
+.PHONY: app release install icon strings
 
-# Input to the release pipeline at build/Kay.app. Not for daily use — see `install`.
+# macOS app. Input to the release pipeline at build/Kay.app. Not for daily use — see `install`.
 app:
-	@scripts/build-app.sh
+	@macOS/scripts/build-app.sh
 
 # Notarize through the account pipeline (asc notarize kay) and publish a GitHub release.
-# `scripts/publish.sh --dry-run` checks the preconditions without spending a notarization.
+# `macOS/scripts/publish.sh --dry-run` checks the preconditions without spending a notarization.
 release:
-	@scripts/publish.sh
+	@macOS/scripts/publish.sh
 
 # Put the released disk image into /Applications. This is the copy to use and test.
 install:
-	@scripts/install-release.sh
+	@macOS/scripts/install-release.sh
 
-# Re-render Resources/AppIcon.icns from scripts/make-icon.swift.
+# Re-render macOS/Resources/AppIcon.icns from macOS/scripts/make-icon.swift.
 icon:
-	@swift scripts/make-icon.swift .
+	@swift macOS/scripts/make-icon.swift .
+
+# Regenerate the .lproj string tables from macOS/scripts/localize.py.
+strings:
+	@python3 macOS/scripts/localize.py

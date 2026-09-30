@@ -1,5 +1,5 @@
 #!/usr/bin/env swift
-// Renders Resources/AppIcon.icns. Run via `make icon`.
+// Renders macOS/Resources/AppIcon.icns. Run via `make icon`.
 //
 // Drawn in code rather than shipped as a binary asset so the mark stays editable.
 
@@ -56,7 +56,7 @@ for base in [16, 32, 128, 256, 512] {
 
 let process = Process()
 process.executableURL = URL(fileURLWithPath: "/usr/bin/iconutil")
-process.arguments = ["-c", "icns", iconset.path, "-o", root.appendingPathComponent("Resources/AppIcon.icns").path]
+process.arguments = ["-c", "icns", iconset.path, "-o", root.appendingPathComponent("macOS/Resources/AppIcon.icns").path]
 try process.run()
 process.waitUntilExit()
-print(process.terminationStatus == 0 ? "Resources/AppIcon.icns" : "iconutil failed")
+print(process.terminationStatus == 0 ? "macOS/Resources/AppIcon.icns" : "iconutil failed")

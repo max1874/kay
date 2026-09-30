@@ -8,8 +8,8 @@
 # Usage: scripts/install-release.sh [path-to-dmg]
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-VERSION="$(/usr/bin/plutil -extract CFBundleShortVersionString raw "$ROOT/Resources/Info.plist")"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+VERSION="$(/usr/bin/plutil -extract CFBundleShortVersionString raw "$ROOT/macOS/Resources/Info.plist")"
 DMG="${1:-$ROOT/build/Kay-$VERSION.dmg}"
 
 if [ ! -f "$DMG" ]; then

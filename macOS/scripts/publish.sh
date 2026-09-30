@@ -4,9 +4,9 @@
 # Signing, notarization, the disk image and its audit are not implemented here — `asc notarize kay`
 # in ~/Projects/Repo/apple-developer owns them and leaves build/Kay-<version>.dmg (+ .sha256).
 #
-# Usage: scripts/publish.sh [--notes <file>] [--dry-run]
+# Usage: macOS/scripts/publish.sh [--notes <file>] [--dry-run]
 set -euo pipefail
-cd "$(dirname "$0")/.."
+cd "$(dirname "$0")/../.."
 
 NOTES=""
 DRY_RUN=""
@@ -14,12 +14,12 @@ while [ $# -gt 0 ]; do
   case "$1" in
     --notes) NOTES="$2"; shift 2 ;;
     --dry-run) DRY_RUN=1; shift ;;
-    *) echo "usage: scripts/publish.sh [--notes <file>] [--dry-run]" >&2; exit 1 ;;
+    *) echo "usage: macOS/scripts/publish.sh [--notes <file>] [--dry-run]" >&2; exit 1 ;;
   esac
 done
 
-VERSION="$(/usr/bin/plutil -extract CFBundleShortVersionString raw Resources/Info.plist)"
-BUILD="$(/usr/bin/plutil -extract CFBundleVersion raw Resources/Info.plist)"
+VERSION="$(/usr/bin/plutil -extract CFBundleShortVersionString raw macOS/Resources/Info.plist)"
+BUILD="$(/usr/bin/plutil -extract CFBundleVersion raw macOS/Resources/Info.plist)"
 TAG="v$VERSION"
 DMG="build/Kay-$VERSION.dmg"
 

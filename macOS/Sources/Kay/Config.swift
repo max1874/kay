@@ -1,12 +1,5 @@
 import Foundation
 
-enum AppFiles {
-    static var directory: URL {
-        FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent("Library/Application Support/Kay")
-    }
-}
-
 /// 1.0.0 kept the API key in a JSON file; from 1.1.0 it lives in the Keychain.
 /// Only read once, to move the key over, then deleted.
 enum LegacyConfig {

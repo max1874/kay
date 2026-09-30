@@ -58,9 +58,11 @@ final class SpeechService: ObservableObject {
     var hasKey: Bool { apiKey != nil }
 
     private init() {
+        #if os(macOS)
         if Keychain.get() == nil, let legacy = LegacyConfig.takeApiKey(), Keychain.set(legacy), Keychain.get() == legacy {
             LegacyConfig.remove()
         }
+        #endif
         let key = Keychain.get()
         apiKey = key
         maskedKey = key.map(Self.mask)

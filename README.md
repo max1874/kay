@@ -45,15 +45,19 @@ Your key is stored in the macOS Keychain. Audio goes directly from your Mac to V
 
 ## Build from source
 
+```
+macOS/    the Mac app (SwiftPM; Package.swift is at the root), its resources and scripts
+iOS/      the iPhone app (Xcode project) — in progress
+Shared/   compiled into both: the Doubao streaming protocol, audio capture, key storage, history
+```
+
 Needs Xcode 26 (macOS 26 SDK).
 
 ```sh
 make app      # build/Kay.app — signed with your Developer ID if you have one, ad hoc otherwise
-make icon     # regenerate Resources/AppIcon.icns
+make icon     # regenerate macOS/Resources/AppIcon.icns
+make strings  # regenerate the .lproj tables from macOS/scripts/localize.py (English, Simplified Chinese)
 ```
-
-UI strings live in one table, `scripts/localize.py` (English and Simplified Chinese). Run it after changing
-a string to regenerate `Resources/*.lproj`.
 
 `make release` / `make install` are the maintainer's notarize-and-publish flow and depend on private
 tooling (`asc`); you don't need them to build or run Kay.

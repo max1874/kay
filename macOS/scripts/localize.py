@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Emits Resources/{en,zh-Hans}.lproj/Localizable.strings (and zh-Hans InfoPlist.strings) from one table.
+"""Emits macOS/Resources/{en,zh-Hans}.lproj/Localizable.strings (and zh-Hans InfoPlist.strings) from one table.
 
 Run it by hand after changing a user-visible string; the .strings files are committed, so a
 build never needs Python. English is the key, so en.lproj is key == value.
@@ -7,7 +7,7 @@ Interpolations follow Swift's format keys: Int -> %lld, String -> %@.
 """
 import os
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 GROUPS = [
     ("Shortcut", [
@@ -152,7 +152,7 @@ def main():
     dupes = {k for k in keys if keys.count(k) > 1}
     if dupes:
         raise SystemExit(f"duplicate keys: {sorted(dupes)}")
-    res = os.path.join(ROOT, "Resources")
+    res = os.path.join(ROOT, "macOS", "Resources")
     write(os.path.join(res, "en.lproj/Localizable.strings"), [(t, [(k, k) for k, _ in p]) for t, p in GROUPS])
     write(os.path.join(res, "zh-Hans.lproj/Localizable.strings"), GROUPS)
     write(os.path.join(res, "zh-Hans.lproj/InfoPlist.strings"), [("Info.plist", INFO_PLIST_ZH)])

@@ -16,6 +16,14 @@ struct HistoryEntry: Codable, Identifiable, Equatable {
     }
 }
 
+enum AppFiles {
+    /// ~/Library/Application Support/Kay on the Mac (Kay is not sandboxed); the app container's on iOS.
+    static var directory: URL {
+        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("Kay")
+    }
+}
+
 enum HistoryStore {
     static let limit = 1000
 
