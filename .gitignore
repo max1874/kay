@@ -1,0 +1,5 @@
+.build/
+build/
+.env
+tools/results.jsonl
+tools/recordings/
