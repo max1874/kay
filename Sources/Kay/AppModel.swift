@@ -38,8 +38,8 @@ final class AppModel: ObservableObject {
             refreshGlobeKey()
         }
     }
-    /// fn is also the 🌐 key. Unless Keyboard settings say "Press 🌐 key to: Do Nothing", macOS acts on
-    /// every press too (emoji picker, input source, system dictation) and fights with Kay.
+    /// fn is also the 🌐 key. Kay is held, and macOS's own 🌐 action is for a tap, so this is not a
+    /// requirement; Settings only mentions it, for Macs where letting go still brings up the emoji picker.
     @Published private(set) var globeKeyConflict = false
 
     let speech = SpeechService.shared
@@ -52,7 +52,7 @@ final class AppModel: ObservableObject {
     private var speechChanges: AnyCancellable?
 
     var isReady: Bool {
-        microphone == .authorized && accessibility && speech.status.isUsable && !globeKeyConflict
+        microphone == .authorized && accessibility && speech.status.isUsable
     }
 
     func start() {

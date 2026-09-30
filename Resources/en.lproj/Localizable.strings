@@ -6,12 +6,9 @@
 "Hold %@ to Dictate" = "Hold %@ to Dictate";
 "Let go of %@ to finish. Press any other key to cancel." = "Let go of %@ to finish. Press any other key to cancel.";
 "Lets Kay notice the dictation key and paste the text for you." = "Lets Kay notice the dictation key and paste the text for you.";
-"Globe Key" = "Globe Key";
-"In Keyboard settings, set “Press 🌐 key to” to “Do Nothing”, so macOS doesn't also act on fn while you dictate." = "In Keyboard settings, set “Press 🌐 key to” to “Do Nothing”, so macOS doesn't also act on fn while you dictate.";
-"Open Keyboard Settings" = "Open Keyboard Settings";
 "fn (🌐)" = "fn (🌐)";
-"Set “Press 🌐 key to” to “Do Nothing”" = "Set “Press 🌐 key to” to “Do Nothing”";
-"Otherwise macOS also acts on fn every time you dictate." = "Otherwise macOS also acts on fn every time you dictate.";
+"If the emoji picker or another input source shows up after you let go of fn, set “Press 🌐 key to” to “Do Nothing”." = "If the emoji picker or another input source shows up after you let go of fn, set “Press 🌐 key to” to “Do Nothing”.";
+"Keyboard Settings…" = "Keyboard Settings…";
 "Pressing any other key while you hold it cancels the recording, so shortcuts that use the same key keep working." = "Pressing any other key while you hold it cancels the recording, so shortcuts that use the same key keep working.";
 
 /* App and menu bar */

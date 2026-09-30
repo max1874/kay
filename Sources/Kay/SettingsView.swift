@@ -44,23 +44,20 @@ private struct GeneralSettings: View {
                     Text("fn (🌐)").tag(Trigger.fn)
                     Text("Right Option ⌥").tag(Trigger.rightOption)
                 }
-                if model.globeKeyConflict {
-                    LabeledContent {
-                        Button("Open Keyboard Settings", action: model.openKeyboardSettings)
-                    } label: {
-                        Label {
-                            Text("Set “Press 🌐 key to” to “Do Nothing”")
-                            Text("Otherwise macOS also acts on fn every time you dictate.")
-                        } icon: {
-                            Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
-                        }
-                    }
-                }
             } header: {
                 Text("Shortcut")
             } footer: {
-                Text("Pressing any other key while you hold it cancels the recording, so shortcuts that use the same key keep working.")
-                    .foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Pressing any other key while you hold it cancels the recording, so shortcuts that use the same key keep working.")
+                    if model.globeKeyConflict {
+                        HStack(alignment: .firstTextBaseline, spacing: 4) {
+                            Text("If the emoji picker or another input source shows up after you let go of fn, set “Press 🌐 key to” to “Do Nothing”.")
+                            Button("Keyboard Settings…", action: model.openKeyboardSettings)
+                                .buttonStyle(.link)
+                        }
+                    }
+                }
+                .foregroundStyle(.secondary)
             }
 
             Section("Permissions") {

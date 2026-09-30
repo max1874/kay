@@ -6,12 +6,9 @@
 "Hold %@ to Dictate" = "按住 %@ 开始听写";
 "Let go of %@ to finish. Press any other key to cancel." = "松开 %@ 结束，按其他任意键取消。";
 "Lets Kay notice the dictation key and paste the text for you." = "用来识别听写快捷键，并把文字粘贴到光标处。";
-"Globe Key" = "🌐 键";
-"In Keyboard settings, set “Press 🌐 key to” to “Do Nothing”, so macOS doesn't also act on fn while you dictate." = "在键盘设置中把「按下 🌐 键时」设为「不执行任何操作」，否则每次听写时 macOS 也会响应 fn 键（比如弹出表情面板）。";
-"Open Keyboard Settings" = "打开键盘设置";
 "fn (🌐)" = "fn（🌐）";
-"Set “Press 🌐 key to” to “Do Nothing”" = "把「按下 🌐 键时」设为「不执行任何操作」";
-"Otherwise macOS also acts on fn every time you dictate." = "否则每次听写时 macOS 也会响应 fn 键。";
+"If the emoji picker or another input source shows up after you let go of fn, set “Press 🌐 key to” to “Do Nothing”." = "如果松开 fn 后弹出了表情面板或切换了输入法，把「按下 🌐 键时」设为「不执行任何操作」。";
+"Keyboard Settings…" = "键盘设置…";
 "Pressing any other key while you hold it cancels the recording, so shortcuts that use the same key keep working." = "按住时再按其他键会取消本次录音，所以用到这个键的组合键照常可用。";
 
 /* App and menu bar */

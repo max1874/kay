@@ -222,12 +222,6 @@ private struct HomeView: View {
                                   title: "Accessibility",
                                   detail: Text("Lets Kay notice the dictation key and paste the text for you."),
                                   action: "Open System Settings", perform: model.openAccessibilitySettings)
-                        if model.trigger == .fn {
-                            SetupCard(done: !model.globeKeyConflict, symbol: "globe", tint: .teal,
-                                      title: "Globe Key",
-                                      detail: Text("In Keyboard settings, set “Press 🌐 key to” to “Do Nothing”, so macOS doesn't also act on fn while you dictate."),
-                                      action: "Open Keyboard Settings", perform: model.openKeyboardSettings)
-                        }
                         SetupCard(done: speech.status.isUsable, symbol: "key.fill", tint: .purple,
                                   title: "Speech Service", detail: speech.status.summary(maskedKey: speech.maskedKey),
                                   action: "Add API Key") {
