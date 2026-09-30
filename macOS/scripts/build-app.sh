@@ -31,16 +31,38 @@ for LPROJ in "$RES"/*.lproj; do
 	ditto "$LPROJ" "$APP/Contents/Resources/$(basename "$LPROJ")"
 done
 
+# Sparkle ships as an XCFramework and SwiftPM only links it; embedding is Xcode's job, which this build
+# does not use. Without the copy Kay dies at launch: dyld "Library not loaded: @rpath/Sparkle.framework".
+SPARKLE="$(find "$ROOT/.build/artifacts" -maxdepth 6 -type d -name Sparkle.framework \
+	-path '*macos*' 2>/dev/null | head -1)"
+[ -n "$SPARKLE" ] || { echo "error: Sparkle.framework not found; run swift package resolve" >&2; exit 1; }
+echo "==> embedding Sparkle.framework"
+mkdir -p "$APP/Contents/Frameworks"
+ditto "$SPARKLE" "$APP/Contents/Frameworks/Sparkle.framework"
+FRAMEWORK="$APP/Contents/Frameworks/Sparkle.framework"
+
 IDENTITY="${SIGN_IDENTITY:-$(security find-identity -v -p codesigning 2>/dev/null \
 	| grep -oE '"Developer ID Application[^"]*"' | head -1 | tr -d '"' || true)}"
 if [ -n "$IDENTITY" ]; then
 	echo "==> signing with: $IDENTITY"
+	# Inside out, as Lumo does: a nested bundle signed after its container invalidates the container, and
+	# `asc notarize` re-signs only Kay.app itself, so everything in Sparkle needs the Developer ID now.
+	while IFS= read -r nested; do
+		[ -e "$nested" ] || continue
+		codesign --force --options runtime --timestamp --sign "$IDENTITY" "$nested"
+	done <<-NESTED
+		$FRAMEWORK/Versions/B/XPCServices/Downloader.xpc
+		$FRAMEWORK/Versions/B/XPCServices/Installer.xpc
+		$FRAMEWORK/Versions/B/Autoupdate
+		$FRAMEWORK/Versions/B/Updater.app
+	NESTED
+	codesign --force --options runtime --timestamp --sign "$IDENTITY" "$FRAMEWORK"
 	codesign --force --options runtime --timestamp \
 		--entitlements "$RES/Kay.entitlements" --sign "$IDENTITY" "$APP"
 	codesign --verify --deep --strict "$APP"
 else
 	echo "==> no Developer ID identity found, using ad-hoc"
-	codesign --force --sign - "$APP"
+	codesign --force --deep --sign - "$APP"
 fi
 
 echo "==> done: $APP"

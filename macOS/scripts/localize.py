@@ -73,6 +73,7 @@ GROUPS = [
         ("Open at Login", "登录时打开"),
         ("Show in Menu Bar", "在菜单栏显示"),
         ("Show in Dock", "在程序坞显示"),
+        ("Check for Updates…", "检查更新…"),
         ("Without a Dock icon Kay opens straight into the background at launch. Open Kay again from Spotlight or Applications to bring this window back.",
          "不显示程序坞图标时，Kay 启动后直接在后台运行。要打开这个窗口，从聚焦搜索或「应用程序」里再打开一次 Kay。"),
         ("History", "历史记录"),

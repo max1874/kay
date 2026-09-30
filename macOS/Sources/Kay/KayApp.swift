@@ -50,6 +50,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         AppModel.shared.start()
+        Updater.shared.start()
     }
 
     /// Clicking the Dock icon, or opening Kay again from Spotlight or Finder, with no window up.
@@ -86,6 +87,7 @@ private struct MenuBarMenu: View {
             openSettings()
         }
         .keyboardShortcut(",")
+        Button("Check for Updates…") { Updater.shared.checkForUpdates() }
         Divider()
         Button("Quit Kay") { NSApp.terminate(nil) }
             .keyboardShortcut("q")

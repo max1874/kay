@@ -12,7 +12,8 @@ server, and no subscription.
 ## Install
 
 1. Download `Kay-x.y.z.dmg` from [Releases](https://github.com/max1874/kay/releases) and drag Kay to Applications.
-   It is signed and notarized. Requires **macOS 26** on Apple silicon.
+   It is signed and notarized. Requires **macOS 26** on Apple silicon. From 1.5.0 on Kay updates itself
+   (Sparkle): it checks once a day, downloads in the background and installs while you're not dictating.
 2. Open Kay and allow **Microphone** and **Accessibility** (to notice the key and paste for you).
 3. Add a Volcengine API key in **Settings → Speech Service** (see below), then hold fn and talk.
 
@@ -88,7 +89,7 @@ Kay 是一个 macOS 按住说话的听写工具：按住期间把语音实时推
 松开后通常 0.3–0.7 秒出字。使用**你自己的 API Key**，没有 Kay 服务器，也没有订阅。
 
 **安装**：从 [Releases](https://github.com/max1874/kay/releases) 下载 DMG 拖进「应用程序」（已签名公证，需要
-Apple 芯片的 macOS 26）。首次打开允许「麦克风」和「辅助功能」，然后在「设置 → 语音服务」里填 Key。
+Apple 芯片的 macOS 26）。1.5.0 起自动更新：每天检查一次，后台下载，不在听写时自动装好。首次打开允许「麦克风」和「辅助功能」，然后在「设置 → 语音服务」里填 Key。
 
 **获取 Key**：在[火山引擎控制台](https://console.volcengine.com/speech/new/overview)开通「豆包流式语音识别 2.0」
 （小时版或并发版），在新版语音控制台的「API Key」里创建一个，粘贴到 Kay 点「测试并保存」。

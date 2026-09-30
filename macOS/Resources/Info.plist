@@ -15,9 +15,9 @@
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
-    <string>1.4.4</string>
+    <string>1.5.0</string>
     <key>CFBundleVersion</key>
-    <string>11</string>
+    <string>12</string>
     <key>CFBundleDevelopmentRegion</key>
     <string>en</string>
     <key>CFBundleLocalizations</key>
@@ -42,6 +42,20 @@
     <string>26.0</string>
     <key>NSMicrophoneUsageDescription</key>
     <string>Kay records only while you hold the dictation key, and sends the audio to your speech service to turn it into text.</string>
+    <!-- Auto-update (Sparkle): see macOS/Sources/Kay/Updater.swift. The feed and the downloads are public; an
+         update is refused unless it is signed with the private half of SUPublicEDKey (login keychain, account
+         "kay"; exported to ~/Projects/Keys/sparkle-kay-ed25519.key; never in this repository). -->
+    <key>SUFeedURL</key>
+    <string>https://raw.githubusercontent.com/max1874/kay/main/appcast.xml</string>
+    <key>SUPublicEDKey</key>
+    <string>H/d+RN2nzlYwIxjdwitGyqrV6c14y3BzYEOrlm9QyEQ=</string>
+    <key>SUEnableAutomaticChecks</key>
+    <true/>
+    <key>SUAutomaticallyUpdate</key>
+    <true/>
+    <!-- Daily. Anything shorter mostly wakes the machine to be told no. -->
+    <key>SUScheduledCheckInterval</key>
+    <integer>86400</integer>
     <key>NSHumanReadableCopyright</key>
     <string>© 2026 Max Lin</string>
 </dict>

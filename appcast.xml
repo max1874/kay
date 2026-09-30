@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Kay's Sparkle feed. macOS/scripts/publish.sh adds each release below the marker, newest first. -->
+<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" xmlns:dc="http://purl.org/dc/elements/1.1/">
+	<channel>
+		<title>Kay</title>
+		<link>https://github.com/max1874/kay</link>
+		<language>en</language>
+		<!-- items -->
+	</channel>
+</rss>

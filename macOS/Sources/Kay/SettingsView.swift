@@ -85,7 +85,12 @@ private struct GeneralSettings: View {
                     }
                     .disabled(model.history.isEmpty)
                 }
-                LabeledContent("Version") { Text(verbatim: version) }
+                LabeledContent("Version") {
+                    HStack {
+                        Text(verbatim: version)
+                        Button("Check for Updates…") { Updater.shared.checkForUpdates() }
+                    }
+                }
             } header: {
                 Text("App")
             } footer: {
