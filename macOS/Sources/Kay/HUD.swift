@@ -139,7 +139,7 @@ private struct HUDView: View {
                         .frame(width: 36, alignment: .leading)  // the clock ticking must not resize the capsule
                 }
             case .recognizing:
-                ProgressView().controlSize(.small)
+                Spinner()
                 Text("Recognizing…").font(.system(size: 13, weight: .medium))
             case .message(let text, let symbol):
                 Image(systemName: symbol)
@@ -155,6 +155,22 @@ private struct HUDView: View {
         .padding(.horizontal, 18)
         .frame(minHeight: Self.height)
         .glassEffect(.regular, in: .capsule)
+    }
+}
+
+/// The Recognizing spinner. `ProgressView` is an `NSProgressIndicator` underneath, whose layout box and
+/// drawing don't line up, so the circle sat off center in the capsule; this one is exactly its frame.
+private struct Spinner: View {
+    @State private var turning = false
+
+    var body: some View {
+        Circle()
+            .trim(from: 0, to: 0.72)
+            .stroke(.secondary, style: StrokeStyle(lineWidth: 2, lineCap: .round))
+            .frame(width: 14, height: 14)
+            .rotationEffect(.degrees(turning ? 360 : 0))
+            .animation(.linear(duration: 0.8).repeatForever(autoreverses: false), value: turning)
+            .onAppear { turning = true }
     }
 }
 
