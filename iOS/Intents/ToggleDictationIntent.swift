@@ -1,8 +1,5 @@
 import AppIntents
 import Foundation
-#if !KAY_WIDGET
-import UIKit
-#endif
 
 /// The Action Button / Control Center / Lock Screen control: press to start listening, press again to
 /// stop; the text lands on the clipboard. An `AudioRecordingIntent` may start the microphone without
@@ -26,16 +23,8 @@ struct ToggleDictationIntent: AudioRecordingIntent, LiveActivityIntent {
     @MainActor
     func perform() async throws -> some IntentResult & ReturnsValue<String> {
         #if !KAY_WIDGET
-        let dictation = DictationController.shared
-        Trace.log("perform: state=\(dictation.state) appState=\(UIApplication.shared.applicationState.rawValue)")
-        do {
-            let text = try await dictation.toggle()
-            Trace.log("perform: done, state=\(dictation.state), returned \(text?.count ?? 0) chars")
-            return .result(value: text ?? "")
-        } catch {
-            Trace.log("perform: threw \(error)")
-            throw error
-        }
+        let text = try await DictationController.shared.toggle()
+        return .result(value: text ?? "")
         #else
         return .result(value: "")
         #endif

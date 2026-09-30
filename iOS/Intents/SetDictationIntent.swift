@@ -17,7 +17,6 @@ struct SetDictationIntent: SetValueIntent, AudioRecordingIntent, LiveActivityInt
     @MainActor
     func perform() async throws -> some IntentResult {
         #if !KAY_WIDGET
-        Trace.log("set: value=\(value) state=\(DictationController.shared.state)")
         // A press always means "the other state": the lit/unlit look can lag behind Kay (a stale value, a
         // process that died mid-dictation), and acting on `value` would then do nothing.
         try await DictationController.shared.toggle()

@@ -47,11 +47,20 @@ Your key is stored in the macOS Keychain. Audio goes directly from your Mac to V
 
 ```
 macOS/    the Mac app (SwiftPM; Package.swift is at the root), its resources and scripts
-iOS/      the iPhone app (Xcode project) — in progress
+iOS/      an experimental iPhone app (Xcode project) — not maintained, not on the App Store
 Shared/   compiled into both: the Doubao streaming protocol, audio capture, key storage, history
 ```
 
 Needs Xcode 26 (macOS 26 SDK).
+
+### About the iPhone app
+
+`iOS/` is an experiment that stopped on purpose. It dictates from a Control (Action Button, Control Center,
+Lock Screen) through an `AudioRecordingIntent`, with a Live Activity while it listens, and it works — but iOS
+lets only a keyboard type into another app, and keeps the clipboard from an app in the background (tested on
+iOS 27, 2026-09-30). So the text only reaches the clipboard when Kay is in front, or through a Shortcut that
+copies the action's result, and every dictation ends in a manual paste. Against the built-in dictation, or a
+keyboard such as Doubao's own, that was not worth it. Kept for reference; build it with Xcode 27.
 
 ```sh
 make app      # build/Kay.app — signed with your Developer ID if you have one, ad hoc otherwise
@@ -91,3 +100,7 @@ Kay 会先用听写用的同一个 WebSocket 做握手验证，通过后才存�
 
 **隐私**：Key 只存在 macOS 钥匙串；音频从你的 Mac 直接发到火山引擎，不经过其他地方。
 听写历史只保存在本机，可在「设置 → 通用」里全部清除。
+
+**iPhone 版**：`iOS/` 是一次主动叫停的实验。用操作按钮 / 控制中心触发录音、灵动岛显示状态，这些都跑通了；
+但 iOS 只允许输入法往别的 app 里打字，也不允许后台 app 写剪贴板（iOS 27 实测，2026-09-30），每次都要多一步
+手动粘贴，比不上系统自带的听写或豆包输入法，所以不维护、不上架，代码留作参考。

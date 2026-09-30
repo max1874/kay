@@ -66,7 +66,6 @@ final class DictationController: ObservableObject {
         guard let text = pendingCopy else { return }
         pendingCopy = nil
         UIPasteboard.general.string = text
-        Trace.log("pending copy done")
     }
 
     func start() throws {
@@ -90,7 +89,6 @@ final class DictationController: ObservableObject {
             try audio.setCategory(.record, mode: .default, options: [.mixWithOthers])
             try audio.setActive(true)
         } catch {
-            Trace.log("setActive failed: \(error as NSError)")
             let message = String(localized: "The microphone didn't start: \(error.localizedDescription)")
             Task { await endActivity(.failed, message: message) }
             throw fail(message)
@@ -146,7 +144,6 @@ final class DictationController: ObservableObject {
             let before = pasteboard.changeCount
             pasteboard.string = text
             let copied = pasteboard.changeCount != before
-            Trace.log("pasteboard: changeCount \(before) -> \(pasteboard.changeCount), appState=\(UIApplication.shared.applicationState.rawValue)")
             record(HistoryEntry(date: Date(), text: text, audioSeconds: seconds, latencyMs: ms))
             if copied {
                 await endActivity(.copied, message: text)
@@ -188,7 +185,6 @@ final class DictationController: ObservableObject {
     /// the reason shows up.
     private func fail(_ message: String) -> KayError {
         lastError = message
-        Trace.log("start failed: \(message)")
         record(HistoryEntry(date: Date(), text: "", audioSeconds: 0, latencyMs: nil, error: message))
         return KayError(message: message)
     }
@@ -199,13 +195,8 @@ final class DictationController: ObservableObject {
     /// while a Live Activity is up.
     private func startActivity() {
         let state = DictationActivityAttributes.ContentState(phase: .listening, startedAt: startedAt, message: nil)
-        do {
-            activity = try Activity.request(attributes: DictationActivityAttributes(),
-                                            content: .init(state: state, staleDate: nil))
-            Trace.log("activity started")
-        } catch {
-            Trace.log("activity failed: \(error)")
-        }
+        activity = try? Activity.request(attributes: DictationActivityAttributes(),
+                                         content: .init(state: state, staleDate: nil))
     }
 
     private func updateActivity(_ phase: DictationActivityAttributes.ContentState.Phase, message: String?) async {

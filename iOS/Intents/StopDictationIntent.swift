@@ -14,7 +14,6 @@ struct StopDictationIntent: AudioRecordingIntent, LiveActivityIntent {
     @MainActor
     func perform() async throws -> some IntentResult {
         #if !KAY_WIDGET
-        Trace.log("stop button: state=\(DictationController.shared.state)")
         await DictationController.shared.stop()
         #endif
         return .result()
