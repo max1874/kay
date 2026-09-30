@@ -47,10 +47,13 @@ struct DictationLiveActivity: Widget {
                     Elapsed(state: context.state).font(.title3)
                 }
                 DynamicIslandExpandedRegion(.bottom) {
-                    PhaseText(state: context.state)
-                        .font(.callout)
-                        .lineLimit(2)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                    HStack(spacing: 12) {
+                        PhaseText(state: context.state)
+                            .font(.callout)
+                            .lineLimit(2)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        if context.state.phase == .listening { StopButton() }
+                    }
                 }
             } compactLeading: {
                 PhaseIcon(phase: context.state.phase)
@@ -77,7 +80,23 @@ private struct LockScreenView: View {
                 .lineLimit(3)
                 .frame(maxWidth: .infinity, alignment: .leading)
             Elapsed(state: state).font(.title3)
+            if state.phase == .listening { StopButton() }
         }
+    }
+}
+
+/// Voice Memos' red stop: ends the dictation and copies the text.
+private struct StopButton: View {
+    var body: some View {
+        Button(intent: StopDictationIntent()) {
+            Image(systemName: "stop.fill")
+                .font(.system(size: 18, weight: .bold))
+                .foregroundStyle(.white)
+                .frame(width: 44, height: 44)
+                .background(.red, in: Circle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Stop")
     }
 }
 
