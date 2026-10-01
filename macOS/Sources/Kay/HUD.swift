@@ -3,6 +3,14 @@ import SwiftUI
 
 /// The glass capsule above the Dock while you dictate. It never takes focus or clicks: the text is
 /// about to land in whatever app you are typing in, and that app has to stay frontmost.
+///
+/// Failure class, read before changing anything here: a SwiftUI animation still running in this panel
+/// while Kay resizes it makes AppKit's Update Constraints pass loop, and AppKit kills the process —
+/// on the path every dictation takes, so the text is lost. It happened twice: 1.3.1 (level bars animating
+/// while the panel sized itself) and 1.4.4–1.5.1 (a `repeatForever` spinner when Recognizing resized
+/// the panel; every dictation crashed for 27 hours). Anything that moves in here is Core Animation
+/// (`Spinner`) or happens between resizes, and only a real dictation proves a change: an offscreen
+/// render has no display cycle and cannot show this.
 final class HUD {
     private let content = HUDState()
     /// Measures the capsule for the current mode. `NSView.fittingSize` is the *smallest* size that fits, and
