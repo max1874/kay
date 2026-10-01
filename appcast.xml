@@ -7,6 +7,15 @@
 		<language>en</language>
 		<!-- items -->
 		<item>
+			<title>1.5.3</title>
+			<pubDate>Thu, 01 Oct 2026 16:33:19 +0000</pubDate>
+			<sparkle:version>15</sparkle:version>
+			<sparkle:shortVersionString>1.5.3</sparkle:shortVersionString>
+			<sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+			<description><![CDATA[Fixes the crash on letting go of the key in 1.4.4–1.5.2.]]></description>
+			<enclosure url="https://github.com/max1874/kay/releases/download/v1.5.3/Kay-1.5.3.zip" length="2695633" type="application/octet-stream" sparkle:edSignature="wkBh1HMVlyG1RgKok9nvCtohAQV8ezw3PCcpb/UsMkn2SK3R+JPFd2feYn4L+RoFVzXeXlAvbUjR57AV5MaDAA=="/>
+		</item>
+		<item>
 			<title>1.5.2</title>
 			<pubDate>Thu, 01 Oct 2026 16:09:14 +0000</pubDate>
 			<sparkle:version>14</sparkle:version>
