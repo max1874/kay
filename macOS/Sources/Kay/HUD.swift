@@ -160,19 +160,76 @@ private struct HUDView: View {
     }
 }
 
-/// The Recognizing spinner. `ProgressView` is an `NSProgressIndicator` underneath, whose layout box and
-/// drawing don't line up, so the circle sat off center in the capsule; this one is exactly its frame.
-private struct Spinner: View {
-    @State private var turning = false
+/// The Recognizing spinner: an arc that Core Animation turns, exactly its 14 pt frame.
+///
+/// Not `ProgressView`: that is an `NSProgressIndicator` whose drawing doesn't line up with its layout box,
+/// so the circle sat off center (≤1.4.3). Not a SwiftUI `repeatForever` animation either: a running SwiftUI
+/// animation asks the hosting view for another update every frame, and when that landed in the constraints
+/// pass of the panel being resized for this mode, AppKit counted each request as one more pass and threw.
+/// 1.4.4–1.5.1 crashed that way on every letting go of the key, losing the dictation with the process.
+/// A layer animation runs in the render server and never touches the view graph.
+private struct Spinner: NSViewRepresentable {
+    func makeNSView(context: Context) -> SpinnerView { SpinnerView() }
+    func updateNSView(_ view: SpinnerView, context: Context) {}
 
-    var body: some View {
-        Circle()
-            .trim(from: 0, to: 0.72)
-            .stroke(.secondary, style: StrokeStyle(lineWidth: 2, lineCap: .round))
-            .frame(width: 14, height: 14)
-            .rotationEffect(.degrees(turning ? 360 : 0))
-            .animation(.linear(duration: 0.8).repeatForever(autoreverses: false), value: turning)
-            .onAppear { turning = true }
+    func sizeThatFits(_ proposal: ProposedViewSize, nsView: SpinnerView, context: Context) -> CGSize? {
+        CGSize(width: 14, height: 14)
+    }
+}
+
+private final class SpinnerView: NSView {
+    private let arc = CAShapeLayer()
+
+    override init(frame: NSRect) {
+        super.init(frame: frame)
+        wantsLayer = true
+        arc.fillColor = nil
+        arc.lineWidth = 2
+        arc.lineCap = .round
+        arc.strokeEnd = 0.72
+        layer?.addSublayer(arc)
+    }
+
+    required init?(coder: NSCoder) { fatalError("not used from a nib") }
+
+    override func setFrameSize(_ newSize: NSSize) {
+        super.setFrameSize(newSize)
+        withoutImplicitAnimation {
+            arc.frame = bounds  // turns about its center: the default anchor point
+            arc.path = CGPath(ellipseIn: bounds.insetBy(dx: arc.lineWidth / 2, dy: arc.lineWidth / 2),
+                              transform: nil)
+        }
+    }
+
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        effectiveAppearance.performAsCurrentDrawingAppearance {
+            withoutImplicitAnimation { arc.strokeColor = NSColor.secondaryLabelColor.cgColor }
+        }
+    }
+
+    /// `arc` is a plain sublayer, so every property change would otherwise fade in over 0.25 s.
+    private func withoutImplicitAnimation(_ change: () -> Void) {
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        change()
+        CATransaction.commit()
+    }
+
+    // Turning only while on screen: the view leaves the window when the HUD goes back to .idle.
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        guard window != nil else {
+            arc.removeAllAnimations()
+            return
+        }
+        viewDidChangeEffectiveAppearance()
+        let turn = CABasicAnimation(keyPath: "transform.rotation.z")
+        turn.fromValue = 0
+        turn.toValue = -2 * Double.pi  // clockwise: the layer's y axis points up
+        turn.duration = 0.8
+        turn.repeatCount = .infinity
+        arc.add(turn, forKey: "turn")
     }
 }
 
