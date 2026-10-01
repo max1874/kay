@@ -4,19 +4,20 @@ import SwiftUI
 /// The glass capsule above the Dock while you dictate. It never takes focus or clicks: the text is
 /// about to land in whatever app you are typing in, and that app has to stay frontmost.
 ///
-/// Failure class, read before changing anything here: a SwiftUI animation still running in this panel
-/// while Kay resizes it makes AppKit's Update Constraints pass loop, and AppKit kills the process —
-/// on the path every dictation takes, so the text is lost. It happened twice: 1.3.1 (level bars animating
-/// while the panel sized itself) and 1.4.4–1.5.1 (a `repeatForever` spinner when Recognizing resized
-/// the panel; every dictation crashed for 27 hours). Anything that moves in here is Core Animation
-/// (`Spinner`) or happens between resizes, and only a real dictation proves a change: an offscreen
-/// render has no display cycle and cannot show this.
+/// Failure class, read before changing anything here: resizing this panel while its SwiftUI content is
+/// changing makes AppKit's Update Constraints pass loop — the hosting view's frame moves, SwiftUI asks for
+/// one more update, AppKit runs one more pass — until AppKit throws and the process dies, on the path every
+/// dictation takes, so the text is lost with it. It happened in 1.3.1 (the panel sized itself to the level
+/// bars) and in 1.4.4–1.5.2 (Kay resized the panel when Recognizing took over; every dictation crashed for
+/// 27 hours, and 1.5.2 only removed an animation that fed the loop). So the panel never changes size: it is
+/// a fixed transparent canvas, the capsule sits at its bottom center, and only the capsule changes. Only a
+/// real dictation proves a change here: an offscreen render has no display cycle and cannot show this.
 final class HUD {
+    /// Room for the widest capsule (a two-line message) and its shadow.
+    static let canvas = CGSize(width: 560, height: 120)
+    static let shadowRoom: CGFloat = 12
+
     private let content = HUDState()
-    /// Measures the capsule for the current mode. `NSView.fittingSize` is the *smallest* size that fits, and
-    /// SwiftUI lets text shrink to nothing: "Recognizing…" was laid out 0 pt wide, leaving a 60 pt capsule
-    /// with the spinner off to one side (1.4.2–1.4.3). This asks for the size the content wants instead.
-    private lazy var measure = NSHostingController(rootView: HUDView(state: content))
     private var panel: NSPanel?
     private var hideWork: DispatchWorkItem?
 
@@ -63,7 +64,7 @@ final class HUD {
         let panel = panel ?? make()
         self.panel = panel
         content.mode = mode
-        place(panel, size: measure.sizeThatFits(in: CGSize(width: 560, height: 240)))
+        place(panel)
         if !panel.isVisible || panel.alphaValue < 1 {
             panel.alphaValue = 0
             panel.orderFrontRegardless()
@@ -75,39 +76,35 @@ final class HUD {
     }
 
     private func make() -> NSPanel {
-        let panel = NSPanel(contentRect: NSRect(x: 0, y: 0, width: 200, height: 44),
+        let panel = NSPanel(contentRect: NSRect(origin: .zero, size: Self.canvas),
                             styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
         panel.isFloatingPanel = true
         panel.level = .statusBar
         panel.isOpaque = false
         panel.backgroundColor = .clear
-        panel.hasShadow = true
+        // A window shadow would outline the whole canvas; the capsule draws its own.
+        panel.hasShadow = false
         panel.hidesOnDeactivate = false
         panel.ignoresMouseEvents = true
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
 
-        let host = NSHostingView(rootView: HUDView(state: content))
-        // Kay sizes the panel itself, once per mode. Left to the hosting view, every level update
-        // (20 a second) re-derived the window's size limits inside the constraints pass until AppKit
-        // gave up and threw — 1.3.1 crashed on letting go of the key.
+        let host = NSHostingView(rootView: HUDView(state: content)
+            .padding(.bottom, Self.shadowRoom)
+            .frame(width: Self.canvas.width, height: Self.canvas.height, alignment: .bottom))
+        // The content never sizes the window, either (1.3.1).
         host.sizingOptions = []
-        // The window shadow follows the layer; unclipped, it would box the capsule in grey.
-        host.wantsLayer = true
-        host.layer?.cornerRadius = HUDView.height / 2
-        host.layer?.cornerCurve = .continuous
-        host.layer?.masksToBounds = true
         panel.contentView = host
         return panel
     }
 
-    /// Above the Dock on the screen the pointer is on, centered; size and position in one step.
-    private func place(_ panel: NSPanel, size: CGSize) {
+    /// Above the Dock on the screen the pointer is on, centered. Moves the canvas, never resizes it.
+    private func place(_ panel: NSPanel) {
         let mouse = NSEvent.mouseLocation
         let screen = NSScreen.screens.first { $0.frame.contains(mouse) } ?? NSScreen.main
         guard let visible = screen?.visibleFrame else { return }
-        let size = CGSize(width: ceil(size.width), height: ceil(size.height))
-        panel.setFrame(CGRect(x: (visible.midX - size.width / 2).rounded(), y: visible.minY + 56,
-                              width: size.width, height: size.height), display: true)
+        let origin = CGPoint(x: (visible.midX - Self.canvas.width / 2).rounded(),
+                             y: visible.minY + 56 - Self.shadowRoom)
+        if panel.frame.origin != origin { panel.setFrameOrigin(origin) }
     }
 }
 
@@ -165,6 +162,7 @@ private struct HUDView: View {
         .padding(.horizontal, 18)
         .frame(minHeight: Self.height)
         .glassEffect(.regular, in: .capsule)
+        .shadow(color: .black.opacity(0.18), radius: 8, y: 2)
     }
 }
 
@@ -173,9 +171,8 @@ private struct HUDView: View {
 /// Not `ProgressView`: that is an `NSProgressIndicator` whose drawing doesn't line up with its layout box,
 /// so the circle sat off center (≤1.4.3). Not a SwiftUI `repeatForever` animation either: a running SwiftUI
 /// animation asks the hosting view for another update every frame, and when that landed in the constraints
-/// pass of the panel being resized for this mode, AppKit counted each request as one more pass and threw.
-/// 1.4.4–1.5.1 crashed that way on every letting go of the key, losing the dictation with the process.
-/// A layer animation runs in the render server and never touches the view graph.
+/// pass of a resizing panel, AppKit counted each request as one more pass (see `HUD`). A layer animation runs
+/// in the render server and never touches the view graph.
 private struct Spinner: NSViewRepresentable {
     func makeNSView(context: Context) -> SpinnerView { SpinnerView() }
     func updateNSView(_ view: SpinnerView, context: Context) {}
