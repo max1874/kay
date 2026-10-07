@@ -75,10 +75,9 @@ make icon     # regenerate macOS/Resources/AppIcon.icns
 make strings  # regenerate the .lproj tables from macOS/scripts/localize.py (English, Simplified Chinese)
 ```
 
-`make release` / `make promote` / `make install` are the maintainer's notarize-and-publish flow and depend on
-private tooling (`asc`); you don't need them to build or run Kay. `make release` notarizes a build and installs it
-on the maintainer's Mac without publishing it; `make promote` publishes that same build — the GitHub release, then
-the appcast that installed copies update from — only after it has dictated there without crashing.
+`make release` / `make install` are the maintainer's notarize-and-publish flow and depend on private tooling
+(`asc`); you don't need them to build or run Kay. `make release` notarizes a build, publishes it — the GitHub
+release, then the appcast that installed copies update from — and installs it on the maintainer's Mac.
 
 `tools/ab.py` compares Doubao and Qwen ASR on an audio file (latency, text, cost). It reads credentials from a
 `.env` file in the repository root, which is git-ignored.
