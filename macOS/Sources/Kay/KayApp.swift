@@ -54,6 +54,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         AppModel.shared.start()
         Updater.shared.start()
+        // After the close, when the window no longer counts as visible.
+        NotificationCenter.default.addObserver(forName: NSWindow.willCloseNotification, object: nil,
+                                               queue: .main) { _ in
+            DispatchQueue.main.async { AppModel.hideDockIconIfWindowless() }
+        }
     }
 
     /// Clicking the Dock icon, or opening Kay again from Spotlight or Finder, with no window up.

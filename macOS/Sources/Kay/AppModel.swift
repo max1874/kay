@@ -30,6 +30,17 @@ final class AppModel: ObservableObject {
         NSApp.activate()
     }
 
+    /// With the Dock icon off, Kay still turned into a regular app with a Dock icon once one of its windows
+    /// had been opened, and stayed that way after it closed (1.5.4, 2026-10-07: Foreground with showDockIcon
+    /// off; nothing in Kay sets .regular except the toggle). Whatever does it, the setting wins again as soon
+    /// as no window of Kay's is left on screen.
+    static func hideDockIconIfWindowless() {
+        guard !showsDockIcon, NSApp.activationPolicy() != .accessory else { return }
+        // Titled windows only: the HUD is a borderless panel and the menu bar item has its own window.
+        guard !NSApp.windows.contains(where: { $0.isVisible && $0.styleMask.contains(.titled) }) else { return }
+        NSApp.setActivationPolicy(.accessory)
+    }
+
     @Published private(set) var state = State.idle
     @Published private(set) var history: [HistoryEntry] = []
     @Published private(set) var microphone = AVCaptureDevice.authorizationStatus(for: .audio)
