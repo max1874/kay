@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import SwiftUI
 
 /// The main window does two things: says whether Kay can dictate, and gives back what you said.
@@ -53,14 +54,8 @@ struct ContentView: View {
         .scrollEdgeEffectStyle(.soft, for: .top)
         .navigationTitle("Kay")
         .searchable(text: $query, placement: .toolbar, prompt: Text("Search Dictations"))
-        .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                SettingsLink {
-                    Label("Settings", systemImage: "gearshape")
-                }
-                .help("Speech service, shortcut and permissions")
-            }
-        }
+        // No Settings button in the toolbar: the HIG keeps that space for frequent commands, and Settings
+        // opens the standard way, Kay → Settings… (⌘,).
         .frame(minWidth: 560, minHeight: 460)
     }
 }
@@ -94,6 +89,7 @@ private struct StatusHeader: View {
                         .font(.callout)
                         .foregroundStyle(.secondary)
                     }
+                    MicrophoneMenu()
                 }
             }
 
@@ -129,6 +125,53 @@ private struct StatusHeader: View {
         case .processing: "Recognizing…"
         case .idle: model.isReady ? "Hold \(model.trigger.name) to Dictate" : "Finish Setting Up Kay"
         }
+    }
+}
+
+/// Which microphone dictation records from, picked where you dictate rather than in Settings: it changes
+/// with what is plugged in, and a task's own options belong beside the task (HIG, Settings). Remembered by
+/// UID; a chosen device that isn't connected leaves the system default recording.
+private struct MicrophoneMenu: View {
+    @AppStorage(Microphones.storageKey) private var uid = ""
+    @State private var devices: [Microphones.Device] = []
+    @State private var defaultName: String?
+
+    var body: some View {
+        Menu {
+            Picker("Microphone", selection: $uid) {
+                Text(systemDefault).tag("")
+                ForEach(devices) { Text($0.name).tag($0.uid) }
+                // A chosen microphone that is unplugged stays chosen, and listed, until it's back.
+                if !uid.isEmpty, !devices.contains(where: { $0.uid == uid }) {
+                    Text("Not Connected").tag(uid)
+                }
+            }
+            .pickerStyle(.inline)
+            .labelsHidden()
+        } label: {
+            Label(current, systemImage: "mic")
+        }
+        .menuStyle(.borderlessButton)
+        .fixedSize()
+        .font(.callout)
+        .foregroundStyle(.secondary)
+        .help("When the chosen microphone isn't connected, Kay records from the system default.")
+        // Plugged in or out since: read again whenever Kay comes forward.
+        .onAppear(perform: reload)
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in reload() }
+    }
+
+    private var systemDefault: String {
+        defaultName.map { String(localized: "System Default (\($0))") } ?? String(localized: "System Default")
+    }
+
+    private var current: String {
+        devices.first { $0.uid == uid }?.name ?? systemDefault
+    }
+
+    private func reload() {
+        devices = Microphones.all()
+        defaultName = Microphones.defaultName()
     }
 }
 

@@ -30,9 +30,6 @@ private struct GeneralSettings: View {
     @ObservedObject private var model = AppModel.shared
     @AppStorage(AppModel.menuBarIconKey) private var showMenuBarIcon = true
     @AppStorage(AppModel.dockIconKey) private var showDockIcon = true
-    @AppStorage(Microphones.storageKey) private var microphoneUID = ""
-    @State private var microphones: [Microphones.Device] = []
-    @State private var defaultMicrophone: String?
     @State private var confirmClear = false
 
     private var version: String {
@@ -63,26 +60,6 @@ private struct GeneralSettings: View {
                     }
                 }
                 .foregroundStyle(.secondary)
-            }
-
-            Section {
-                Picker("Microphone", selection: $microphoneUID) {
-                    Text(defaultMicrophone.map { String(localized: "System Default (\($0))") } ?? String(localized: "System Default"))
-                        .tag("")
-                    ForEach(microphones) { Text($0.name).tag($0.uid) }
-                    // A chosen microphone that is unplugged stays chosen, and listed, until it's back.
-                    if !microphoneUID.isEmpty, !microphones.contains(where: { $0.uid == microphoneUID }) {
-                        Text("Not Connected").tag(microphoneUID)
-                    }
-                }
-            } footer: {
-                Text("When the chosen microphone isn't connected, Kay records from the system default.")
-                    .foregroundStyle(.secondary)
-            }
-            // Plugged in or out since: the list is read each time Settings shows.
-            .onAppear {
-                microphones = Microphones.all()
-                defaultMicrophone = Microphones.defaultName()
             }
 
             Section("Permissions") {
