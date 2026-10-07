@@ -28,7 +28,6 @@ GROUPS = [
     ]),
     ("Main window", [
         ("Settings", "设置"),
-        ("Dictations", "听写记录"),
         ("Speech service, shortcut and permissions", "语音服务、快捷键和权限"),
         ("Search Dictations", "搜索听写"),
         ("No dictations yet. Hold %@ and say something.", "还没有听写记录。按住 %@ 说句话试试。"),
