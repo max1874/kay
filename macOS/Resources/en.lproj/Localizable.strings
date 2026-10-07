@@ -110,4 +110,5 @@
 "Kay can't use the microphone. Allow it in System Settings." = "Kay can't use the microphone. Allow it in System Settings.";
 "The microphone didn't start: %@" = "The microphone didn't start: %@";
 "Didn't catch that." = "Didn't catch that.";
+"Recovered a dictation Kay didn't finish. It's in History." = "Recovered a dictation Kay didn't finish. It's in History.";
 "Copied. Kay needs Accessibility permission to paste for you." = "Copied. Kay needs Accessibility permission to paste for you.";

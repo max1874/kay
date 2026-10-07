@@ -62,6 +62,8 @@ final class AppModel: ObservableObject {
     private let hotkey = HotkeyMonitor()
     private var capture: AudioCapture?
     private var session: DoubaoSession?
+    /// The audio of the dictation in progress, until its outcome is in history.
+    private var pending: PendingDictation?
     private var pressedAt = Date()
     private var poll: Timer?
     private var activation: NSObjectProtocol?
@@ -94,6 +96,7 @@ final class AppModel: ObservableObject {
         if speech.hasKey {
             Task { await speech.test(newKey: nil) }
         }
+        recoverLeftovers()
     }
 
     /// Both grants happen in System Settings; checking once a second is what turns the rows green without a
@@ -209,7 +212,8 @@ final class AppModel: ObservableObject {
     }
 
     private func record(_ entry: HistoryEntry) {
-        history.insert(entry, at: 0)
+        // By date: a recovered dictation (see recoverLeftovers) is older than the ones after it.
+        history.insert(entry, at: history.firstIndex { $0.date < entry.date } ?? history.count)
         if history.count > HistoryStore.limit { history.removeLast(history.count - HistoryStore.limit) }
         HistoryStore.save(history)
     }
@@ -231,7 +235,11 @@ final class AppModel: ObservableObject {
 
         let session = DoubaoSession(apiKey: apiKey, resourceId: speech.resourceId)
         let capture = AudioCapture()
-        capture.onChunk = { [weak session] in session?.sendAudio($0) }
+        let pending = PendingDictation()
+        capture.onChunk = { [weak session] in
+            session?.sendAudio($0)
+            pending?.append($0)
+        }
         capture.onLevel = { [weak self] level in
             DispatchQueue.main.async {
                 guard let self, self.state == .recording else { return }
@@ -241,6 +249,7 @@ final class AppModel: ObservableObject {
         do {
             try capture.start()
         } catch {
+            pending?.discard()
             hud.flash(String(localized: "The microphone didn't start: \(error.localizedDescription)"),
                       symbol: "mic.slash.fill", seconds: 3)
             return
@@ -249,6 +258,7 @@ final class AppModel: ObservableObject {
 
         self.session = session
         self.capture = capture
+        self.pending = pending
         pressedAt = Date()
         state = .recording
         hud.listen(since: pressedAt)
@@ -257,6 +267,7 @@ final class AppModel: ObservableObject {
     private func end() {
         guard state == .recording, let session, let capture else { return }
         let rest = capture.stop()
+        pending?.append(rest)
         let seconds = capture.recordedSeconds
         self.capture = nil
 
@@ -278,6 +289,10 @@ final class AppModel: ObservableObject {
     private func deliver(_ result: Result<String, Error>, audioSeconds: Double, latency: TimeInterval) {
         session = nil
         state = .idle
+        // Only after the outcome is recorded below: a crash before that leaves the audio to recover.
+        let pending = self.pending
+        self.pending = nil
+        defer { pending?.discard() }
         let ms = Int(latency * 1000)
         switch result {
         case .success(let raw):
@@ -310,9 +325,59 @@ final class AppModel: ObservableObject {
     private func cancel() {
         _ = capture?.stop()
         capture = nil
+        pending?.discard()
+        pending = nil
         session?.cancel()
         session = nil
         state = .idle
         hud.hide()
+    }
+
+    // MARK: - Dictations a previous run didn't finish
+
+    /// See `PendingDictation`. Oldest first, one at a time, into history without pasting.
+    private func recoverLeftovers() {
+        guard let apiKey = speech.apiKey else { return }
+        recover(PendingDictation.leftovers()[...], apiKey: apiKey)
+    }
+
+    private func recover(_ leftovers: ArraySlice<(url: URL, started: Date)>, apiKey: String) {
+        guard let first = leftovers.first else { return }
+        let (url, started) = (first.url, first.started)
+        let next = leftovers.dropFirst()
+        guard let pcm = try? Data(contentsOf: url), !pcm.isEmpty else {
+            try? FileManager.default.removeItem(at: url)
+            recover(next, apiKey: apiKey)
+            return
+        }
+        let session = DoubaoSession(apiKey: apiKey, resourceId: speech.resourceId)
+        session.start()
+        // The same 200 ms packets a live dictation sends, only without waiting between them.
+        var offset = 0
+        while pcm.count - offset > AudioCapture.chunkBytes {
+            session.sendAudio(pcm.subdata(in: offset..<offset + AudioCapture.chunkBytes))
+            offset += AudioCapture.chunkBytes
+        }
+        let seconds = Double(pcm.count) / (16000 * 2)
+        session.finish(lastChunk: pcm.subdata(in: offset..<pcm.count), timeout: 30) { [weak self] result in
+            DispatchQueue.main.async {
+                guard let self else { return }
+                switch result {
+                case .success(let raw):
+                    let text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+                    log.notice("recovered an unfinished dictation of \(seconds, privacy: .public) s: \(text.count, privacy: .public) chars")
+                    if !text.isEmpty {
+                        self.record(HistoryEntry(date: started, text: text, audioSeconds: seconds, latencyMs: nil))
+                        self.hud.flash(String(localized: "Recovered a dictation Kay didn't finish. It's in History."),
+                                       symbol: "arrow.uturn.backward.circle", seconds: 3)
+                    }
+                    try? FileManager.default.removeItem(at: url)
+                case .failure(let error):
+                    // Kept for the next launch: no network yet at login is the usual reason.
+                    log.error("unfinished dictation not recovered yet: \(error.localizedDescription, privacy: .public)")
+                }
+                self.recover(next, apiKey: apiKey)
+            }
+        }
     }
 }

@@ -128,6 +128,7 @@ GROUPS = [
         ("Kay can't use the microphone. Allow it in System Settings.", "Kay 无法使用麦克风，请在系统设置中允许。"),
         ("The microphone didn't start: %@", "麦克风启动失败：%@"),
         ("Didn't catch that.", "没听清。"),
+        ("Recovered a dictation Kay didn't finish. It's in History.", "找回了一段没完成的听写，已放进历史。"),
         ("Copied. Kay needs Accessibility permission to paste for you.", "已复制。Kay 需要辅助功能权限才能自动粘贴。"),
     ]),
 ]
