@@ -11,13 +11,26 @@
 # the app, not the image: an image would mount mid-update and put the drag-to-Applications window on screen.
 #
 # Usage:
-#   macOS/scripts/publish.sh [--from <asc step>] [--notes <file>] [--dry-run]
+#   macOS/scripts/publish.sh [--from <asc step> | --from publish] [--notes <file>] [--dry-run]
 #
-# --from resumes `asc notarize` at a step (e.g. notarize-dmg after the upload dropped).
+# --from resumes `asc notarize` at a step (e.g. notarize-dmg after the upload dropped). `--from publish` skips
+# notarizing and zipping and publishes what build/ already holds: for a run that died on the network after
+# them (1.5.8: the zip upload dropped). Every step after that is safe to repeat.
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 
 die() { echo "error: $*" >&2; exit 1; }
+
+# Five tries, ten seconds apart: for the network steps, which the proxy drops now and then.
+retry() {
+  local n
+  for n in 1 2 3 4 5; do
+    "$@" && return 0
+    [ "$n" = 5 ] && die "failed five times: $*; run make release again with --from publish to finish"
+    echo "    retrying ($n): $1 $2 $3" >&2
+    sleep 10
+  done
+}
 
 FROM="" ; DRY_RUN="" ; NOTES=""
 while [ $# -gt 0 ]; do
@@ -46,10 +59,9 @@ require_main() {
   [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" ] || die "main is not in sync with origin"
 }
 
+# Published means in the appcast. A GitHub release without its appcast item is a run that stopped halfway,
+# and running again finishes it.
 require_unpublished() {
-  if gh release view "$TAG" >/dev/null 2>&1; then
-    die "$TAG already published; bump CFBundleShortVersionString (and CFBundleVersion) first"
-  fi
   # Sparkle compares CFBundleVersion and nothing else: a build number that isn't above every published one
   # is an update no installed copy is ever offered (Lumo 1.0.1 shipped that way).
   local published
@@ -76,13 +88,19 @@ release() {
     asc notarize kay --plan
     exit 0
   fi
-  if [ -n "$FROM" ]; then asc notarize kay --from "$FROM"; else asc notarize kay; fi
-
-  # The app is notarized and stapled by now, so the zip carries its own ticket and opens offline.
-  # `ditto -c -k --keepParent` keeps the bundle's symlinks and signature intact.
-  echo "==> zipping the app for Sparkle"
-  rm -f "$ZIP"
-  ditto -c -k --keepParent build/Kay.app "$ZIP"
+  if [ "$FROM" = publish ]; then
+    [ -f "$ZIP" ] && [ -f "$DMG" ] || die "--from publish needs $ZIP and $DMG from an earlier run"
+    [ "$(/usr/bin/plutil -extract CFBundleVersion raw build/Kay.app/Contents/Info.plist)" = "$BUILD" ] \
+      || die "build/Kay.app is not build $BUILD"
+    echo "==> publishing what build/ holds"
+  else
+    if [ -n "$FROM" ]; then asc notarize kay --from "$FROM"; else asc notarize kay; fi
+    # The app is notarized and stapled by now, so the zip carries its own ticket and opens offline.
+    # `ditto -c -k --keepParent` keeps the bundle's symlinks and signature intact.
+    echo "==> zipping the app for Sparkle"
+    rm -f "$ZIP"
+    ditto -c -k --keepParent build/Kay.app "$ZIP"
+  fi
   xcrun stapler validate build/Kay.app
   # Prints the two attributes the appcast item needs: sparkle:edSignature="…" length="…"
   local signed signature length
@@ -93,11 +111,18 @@ release() {
 
   local body="Kay $VERSION (build $BUILD)"
   [ -n "$NOTES" ] && body="$(cat "$NOTES")"$'\n\n'"$body"
-  gh release create "$TAG" "$DMG" "$DMG.sha256" "$ZIP" --target "$(git rev-parse HEAD)" --title "Kay $VERSION" --notes "$body"
+  # Created empty, then each file uploaded on its own with retries: through the proxy an upload drops now and
+  # then (1.5.8), and --clobber makes a repeat replace whatever half-arrived.
+  local attempt asset
+  gh release view "$TAG" >/dev/null 2>&1 \
+    || retry gh release create "$TAG" --target "$(git rev-parse HEAD)" --title "Kay $VERSION" --notes "$body"
+  for asset in "$DMG" "$DMG.sha256" "$ZIP"; do
+    retry gh release upload "$TAG" "$asset" --clobber
+  done
   echo "==> published $TAG"
 
   # The appcast must never point at a file that isn't there: check the public URL serves the signed bytes.
-  local got="" attempt
+  local got=""
   for attempt in 1 2 3 4 5 6 7 8 9 10; do
     got="$(curl -sIL --max-time 30 "$URL" | awk 'tolower($1)=="content-length:" {n=$2} END {gsub(/\r/,"",n); print n}')"
     [ "$got" = "$length" ] && break
