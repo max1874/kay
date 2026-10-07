@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import SwiftUI
 
 struct KayApp: App {
@@ -44,6 +45,8 @@ struct KayApp: App {
 }
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
+    private var quitWhenIdle: AnyCancellable?
+
     func applicationWillFinishLaunching(_ notification: Notification) {
         if !AppModel.showsDockIcon { NSApp.setActivationPolicy(.accessory) }
     }
@@ -62,6 +65,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Dictation lives on the hotkey, not the window: closing it must not quit.
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         false
+    }
+
+    /// A quit while you are dictating (an install replacing Kay, logout, the menu) waits for the text to
+    /// land: quitting there loses what was said. A dictation that never ends doesn't hold the quit past 60 s.
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        guard AppModel.shared.state != .idle else { return .terminateNow }
+        guard quitWhenIdle == nil else { return .terminateLater }
+        log.notice("quit requested while dictating; quitting once it lands")
+        let quit = { [weak self] in
+            guard let self, self.quitWhenIdle != nil else { return }
+            self.quitWhenIdle = nil
+            sender.reply(toApplicationShouldTerminate: true)
+        }
+        quitWhenIdle = AppModel.shared.$state.first { $0 == .idle }.sink { _ in DispatchQueue.main.async(execute: quit) }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 60, execute: quit)
+        return .terminateLater
     }
 }
 

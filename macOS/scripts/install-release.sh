@@ -30,7 +30,17 @@ trap cleanup EXIT
 hdiutil attach "$DMG" -mountpoint "$MOUNT" -nobrowse -quiet -readonly
 
 echo "==> replacing /Applications/Kay.app"
-osascript -e 'tell application id "com.max1874.kay" to quit' 2>/dev/null || true
+# Kay holds a quit until a dictation in progress has landed (at most 60 s), so wait for it to be gone
+# rather than pulling the app out from under it.
+if pgrep -x Kay >/dev/null; then
+	osascript -e 'with timeout of 90 seconds' -e 'tell application id "com.max1874.kay" to quit' \
+		-e 'end timeout' >/dev/null 2>&1 || true
+	for _ in $(seq 1 90); do pgrep -x Kay >/dev/null || break; sleep 1; done
+	if pgrep -x Kay >/dev/null; then
+		echo "error: Kay did not quit within 90 s; /Applications/Kay.app left as it was" >&2
+		exit 1
+	fi
+fi
 rm -rf /Applications/Kay.app
 ditto "$MOUNT/Kay.app" /Applications/Kay.app
 
