@@ -190,8 +190,10 @@ async def doubao_nostream(env, pcm, hotwords):
     }
     step = RATE * 2 * CHUNK_MS // 1000
     chunks = [pcm[i:i + step] for i in range(0, len(pcm), step)] or [b""]
+    # proxy=None: websockets ≥15 otherwise follows the system SOCKS proxy, which needs python-socks and
+    # which a mainland endpoint doesn't need anyway.
     async with websockets.connect(VOLC_NOSTREAM, additional_headers=headers,
-                                  max_size=None) as ws:
+                                  max_size=None, proxy=None) as ws:
         await ws.send(_frame(0b0001, 0b0000, 0b0001, json.dumps(req).encode()))
         _parse(await ws.recv())
 
