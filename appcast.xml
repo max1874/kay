@@ -7,6 +7,15 @@
 		<language>en</language>
 		<!-- items -->
 		<item>
+			<title>1.5.8</title>
+			<pubDate>Wed, 07 Oct 2026 14:53:34 +0000</pubDate>
+			<sparkle:version>20</sparkle:version>
+			<sparkle:shortVersionString>1.5.8</sparkle:shortVersionString>
+			<sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+			<description><![CDATA[Kay 1.5.8 (build 20)]]></description>
+			<enclosure url="https://github.com/max1874/kay/releases/download/v1.5.8/Kay-1.5.8.zip" length="2732510" type="application/octet-stream" sparkle:edSignature="4rNnPRlZMaTQ4vdVjY59US9sZ4BYnMBvgWlkH4Pc5zCPBrNc/NRgadIRYMs86cMpRTxQjTwIoeYkzYfCWA5dBA=="/>
+		</item>
+		<item>
 			<title>1.5.7</title>
 			<pubDate>Wed, 07 Oct 2026 14:16:38 +0000</pubDate>
 			<sparkle:version>19</sparkle:version>
