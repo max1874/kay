@@ -204,11 +204,13 @@ final class AppModel: ObservableObject {
     func delete(_ entry: HistoryEntry) {
         history.removeAll { $0.id == entry.id }
         HistoryStore.save(history)
+        PendingDictation.forget(entry.id)
     }
 
     func clearHistory() {
         history = []
         HistoryStore.save(history)
+        PendingDictation.forgetAll()
     }
 
     private func record(_ entry: HistoryEntry) {
@@ -235,6 +237,9 @@ final class AppModel: ObservableObject {
 
         let session = DoubaoSession(apiKey: apiKey, resourceId: speech.resourceId)
         let capture = AudioCapture()
+        let microphone = Microphones.chosen()
+        capture.inputDevice = microphone?.id
+        log.notice("recording from \(microphone?.name ?? "the system default", privacy: .public)")
         let pending = PendingDictation()
         capture.onChunk = { [weak session] in
             session?.sendAudio($0)
@@ -292,7 +297,10 @@ final class AppModel: ObservableObject {
         // Only after the outcome is recorded below: a crash before that leaves the audio to recover.
         let pending = self.pending
         self.pending = nil
-        defer { pending?.discard() }
+        var recorded: UUID?
+        defer {
+            if let recorded { pending?.keep(as: recorded) } else { pending?.discard() }
+        }
         let ms = Int(latency * 1000)
         switch result {
         case .success(let raw):
@@ -302,7 +310,9 @@ final class AppModel: ObservableObject {
                 hud.flash(String(localized: "Didn't catch that."), symbol: "ear.trianglebadge.exclamationmark")
                 return
             }
-            record(HistoryEntry(date: Date(), text: text, audioSeconds: audioSeconds, latencyMs: ms))
+            let entry = HistoryEntry(date: Date(), text: text, audioSeconds: audioSeconds, latencyMs: ms)
+            record(entry)
+            recorded = entry.id
             if AXIsProcessTrusted() {
                 hud.hide()
                 TextInserter.insert(text)
@@ -317,7 +327,9 @@ final class AppModel: ObservableObject {
             if let kayError = error as? KayError, kayError.isAuthFailure {
                 speech.markFailed(message)
             }
-            record(HistoryEntry(date: Date(), text: "", audioSeconds: audioSeconds, latencyMs: nil, error: message))
+            let entry = HistoryEntry(date: Date(), text: "", audioSeconds: audioSeconds, latencyMs: nil, error: message)
+            record(entry)
+            recorded = entry.id
             hud.flash(message, symbol: "exclamationmark.triangle.fill", seconds: 4)
         }
     }
@@ -367,7 +379,9 @@ final class AppModel: ObservableObject {
                     let text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
                     log.notice("recovered an unfinished dictation of \(seconds, privacy: .public) s: \(text.count, privacy: .public) chars")
                     if !text.isEmpty {
-                        self.record(HistoryEntry(date: started, text: text, audioSeconds: seconds, latencyMs: nil))
+                        let entry = HistoryEntry(date: started, text: text, audioSeconds: seconds, latencyMs: nil)
+                        self.record(entry)
+                        PendingDictation.keep(url, as: entry.id)
                         self.hud.flash(String(localized: "Recovered a dictation Kay didn't finish. It's in History."),
                                        symbol: "arrow.uturn.backward.circle", seconds: 3)
                     }

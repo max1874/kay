@@ -1,4 +1,7 @@
 import AVFoundation
+#if os(macOS)
+import CoreAudio
+#endif
 
 /// 采集麦克风并转成 16kHz / 16bit / 单声道 PCM，按 200ms 分包回调。
 final class AudioCapture {
@@ -7,6 +10,10 @@ final class AudioCapture {
     var onChunk: ((Data) -> Void)?
     /// Loudness of each converted buffer, 0...1, about 20 times a second. Drives the waveforms.
     var onLevel: ((Float) -> Void)?
+#if os(macOS)
+    /// The input device to record from; nil is the system default. Set before `start()`.
+    var inputDevice: AudioDeviceID?
+#endif
 
     private let engine = AVAudioEngine()
     private let target = AVAudioFormat(commonFormat: .pcmFormatInt16, sampleRate: 16000,
@@ -23,6 +30,14 @@ final class AudioCapture {
 
     func start() throws {
         let input = engine.inputNode
+#if os(macOS)
+        // On the input unit before its format is read: the format is the device's. If the device can't be
+        // set (unplugged since it was looked up), the system default records instead.
+        if var device = inputDevice, let unit = input.audioUnit {
+            AudioUnitSetProperty(unit, kAudioOutputUnitProperty_CurrentDevice, kAudioUnitScope_Global, 0,
+                                 &device, UInt32(MemoryLayout<AudioDeviceID>.size))
+        }
+#endif
         let format = input.outputFormat(forBus: 0)
         guard format.sampleRate > 0, let converter = AVAudioConverter(from: format, to: target) else {
             throw KayError(message: String(localized: "No microphone input is available."))

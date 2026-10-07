@@ -38,11 +38,17 @@ sends audio while you hold the key.
   Without Accessibility permission Kay just copies it.
 - **History.** Every dictation — and the reason, when one fails — is kept on this Mac in
   `~/Library/Application Support/Kay/history.json` (last 1000). Click one to copy it again.
+- **Recent audio.** The last 20 dictations' audio is kept next to it in `recent/<entry id>.wav`, so a
+  misrecognition can be played back or sent again (for example with `tools/ab.py`). A dictation cut off by a
+  crash or quit is recognized again at the next launch and lands in History. Deleting an entry, or Clear All,
+  deletes its audio.
+- **Microphone.** Settings → General picks the input device; when it isn't connected, Kay records from the
+  system default.
 
 ### Privacy
 
 Your key is stored in the macOS Keychain. Audio goes directly from your Mac to Volcengine's endpoint
-(`openspeech.bytedance.com`). Nothing else is sent anywhere.
+(`openspeech.bytedance.com`). Nothing else is sent anywhere. The recent audio above never leaves this Mac.
 
 ## Build from source
 

@@ -110,5 +110,9 @@
 "Kay can't use the microphone. Allow it in System Settings." = "Kay can't use the microphone. Allow it in System Settings.";
 "The microphone didn't start: %@" = "The microphone didn't start: %@";
 "Didn't catch that." = "Didn't catch that.";
+"System Default" = "System Default";
+"System Default (%@)" = "System Default (%@)";
+"Not Connected" = "Not Connected";
+"When the chosen microphone isn't connected, Kay records from the system default." = "When the chosen microphone isn't connected, Kay records from the system default.";
 "Recovered a dictation Kay didn't finish. It's in History." = "Recovered a dictation Kay didn't finish. It's in History.";
 "Copied. Kay needs Accessibility permission to paste for you." = "Copied. Kay needs Accessibility permission to paste for you.";
