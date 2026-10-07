@@ -91,9 +91,14 @@ final class PendingDictation {
     private static func wavHeader(bytes: Int) -> Data {
         func u32(_ v: Int) -> Data { withUnsafeBytes(of: UInt32(v).littleEndian) { Data($0) } }
         func u16(_ v: Int) -> Data { withUnsafeBytes(of: UInt16(v).littleEndian) { Data($0) } }
-        return Data("RIFF".utf8) + u32(36 + bytes) + Data("WAVE".utf8)
-            + Data("fmt ".utf8) + u32(16) + u16(1) + u16(1) + u32(16000) + u32(32000) + u16(2) + u16(16)
-            + Data("data".utf8) + u32(bytes)
+        var header = Data("RIFF".utf8)
+        header.append(u32(36 + bytes))
+        header.append(Data("WAVEfmt ".utf8))
+        // PCM, 1 channel, 16000 samples/s, 32000 bytes/s, 2 bytes per frame, 16 bits per sample.
+        for field in [u32(16), u16(1), u16(1), u32(16000), u32(32000), u16(2), u16(16)] { header.append(field) }
+        header.append(Data("data".utf8))
+        header.append(u32(bytes))
+        return header
     }
 
     /// Dictations a previous run didn't finish, oldest first, with when they were started.
