@@ -48,13 +48,16 @@ TAG="v$VERSION"
 DMG="build/Kay-$VERSION.dmg"
 ZIP="build/Kay-$VERSION.zip"
 URL="https://github.com/max1874/kay/releases/download/$TAG/Kay-$VERSION.zip"
-FEED="https://raw.githubusercontent.com/max1874/kay/main/appcast.xml"
 STAGED="build/staged.env"
 HISTORY="$HOME/Library/Application Support/Kay/history.json"
 CRASHES="$HOME/Library/Logs/DiagnosticReports"
 # The exported key, not the login keychain copy: that one puts up a password dialog in the middle of every
 # release (sign_update is a fresh binary each time SwiftPM re-resolves, so "Always Allow" doesn't stick).
 SPARKLE_KEY="${KAY_SPARKLE_KEY:-$HOME/Projects/Keys/sparkle-kay-ed25519.key}"
+# How much use promote wants to see. One dictation catches a build that crashes every time (1.4.4–1.5.2);
+# a few, over a while, give an intermittent failure a chance to show (Max, 2026-10-07).
+MIN_DICTATIONS="${KAY_PROMOTE_MIN_DICTATIONS:-3}"
+MIN_MINUTES="${KAY_PROMOTE_MIN_MINUTES:-10}"
 
 cdhash() { codesign -dvvv "$1" 2>&1 | sed -n 's/^CDHash=//p'; }
 
@@ -129,15 +132,16 @@ INSTALLED_AT=$(date +%s)
 ENV
   echo
   echo "==> staged: Kay $VERSION is installed on this Mac and published nowhere."
-  echo "    Dictate with it (hold the key, speak, let go), then: make promote"
+  echo "    Use it for at least $MIN_MINUTES minutes and $MIN_DICTATIONS dictations, then: make promote"
 }
 
 # Reads what happened on this Mac since the staged build was installed. Prints the evidence; fails unless
-# at least one dictation landed in history and Kay left no crash or hang report.
+# enough dictations landed in history over long enough, and Kay left no crash or hang report.
 read_essential_variable() {
-  python3 - "$HISTORY" "$CRASHES" "$INSTALLED_AT" <<'PY'
-import datetime, glob, json, os, sys
+  python3 - "$HISTORY" "$CRASHES" "$INSTALLED_AT" "$MIN_DICTATIONS" "$MIN_MINUTES" <<'PY'
+import datetime, glob, json, os, sys, time
 history, crashes, since = sys.argv[1], sys.argv[2], int(sys.argv[3])
+need, minutes = int(sys.argv[4]), int(sys.argv[5])
 def when(entry):
     return datetime.datetime.fromisoformat(entry["date"].replace("Z", "+00:00")).timestamp()
 try:
@@ -147,13 +151,15 @@ except FileNotFoundError:
 landed = [e for e in entries if not e.get("error") and e.get("text")]
 failed = [e for e in entries if e.get("error")]
 reports = sorted(p for p in glob.glob(os.path.join(crashes, "Kay[-_]*")) if os.path.getmtime(p) >= since)
-print(f"    dictations since install: {len(landed)} landed, {len(failed)} failed")
+elapsed = (time.time() - since) / 60
+print(f"    in use for {elapsed:.0f} min (want {minutes})")
+print(f"    dictations since install: {len(landed)} landed (want {need}), {len(failed)} failed")
 for e in failed[:3]:
     print(f"      failed {e['date']}: {e['error'][:100]}")
 print(f"    crash/hang reports since install: {len(reports)}")
 for p in reports[:5]:
     print(f"      {p}")
-sys.exit(0 if landed and not reports else 1)
+sys.exit(0 if len(landed) >= need and elapsed >= minutes and not reports else 1)
 PY
 }
 
@@ -187,8 +193,8 @@ promote() {
     echo "$evidence"
     if [ -z "$ACCEPT" ]; then
       echo >&2
-      echo "not promoting: the staged build has not dictated successfully here, or it crashed." >&2
-      echo "Dictate with it and run make promote again; a crash report means a fix and a new stage." >&2
+      echo "not promoting: the staged build hasn't been used enough here yet, or it crashed." >&2
+      echo "Keep using it and run make promote again; a crash report means a fix and a new stage." >&2
       exit 1
     fi
     verdict="accepted unverified: $ACCEPT"
@@ -236,19 +242,21 @@ path.write_text(text)
 PY
   git add appcast.xml
   git commit -q -m "appcast: Kay $VERSION" -m "Before publishing ($verdict):"$'\n'"$evidence"
-  git push --quiet origin main
-
-  # raw.githubusercontent.com caches for a few minutes; this only reports, the push already happened.
-  for attempt in 1 2 3 4 5 6 7 8 9 10; do
-    if curl -sL --max-time 30 "$FEED?$(date +%s)" | grep -q "<sparkle:version>$BUILD</sparkle:version>"; then
-      echo "==> appcast serves build $BUILD; installed copies pick up $VERSION within a day"
-      mv "$STAGED" "build/promoted-$VERSION.env"
-      return
-    fi
-    sleep 6
-  done
   mv "$STAGED" "build/promoted-$VERSION.env"
-  echo "warning: pushed, but $FEED doesn't show build $BUILD yet (CDN cache); check it in a few minutes" >&2
+  # The push is the step that reaches installed copies, and the proxy drops it now and then (1.5.5).
+  for attempt in 1 2 3 4 5; do
+    git push --quiet origin main && break
+    [ "$attempt" = 5 ] && die "$TAG is published and appcast.xml committed, but the push failed; run: git push origin main"
+    sleep 10
+  done
+
+  # What GitHub holds is what counts; raw.githubusercontent.com, which Sparkle reads, catches up within minutes.
+  if gh api "repos/max1874/kay/contents/appcast.xml?ref=main" -q .content | base64 -d \
+      | grep -q "<sparkle:version>$BUILD</sparkle:version>"; then
+    echo "==> appcast on main lists build $BUILD; installed copies pick up $VERSION within a day"
+  else
+    die "pushed, but appcast.xml on GitHub doesn't list build $BUILD"
+  fi
 }
 
 case "$MODE" in
