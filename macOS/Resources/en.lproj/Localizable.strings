@@ -16,6 +16,7 @@
 
 /* Main window */
 "Settings" = "Settings";
+"Dictations" = "Dictations";
 "Speech service, shortcut and permissions" = "Speech service, shortcut and permissions";
 "Search Dictations" = "Search Dictations";
 "No dictations yet. Hold %@ and say something." = "No dictations yet. Hold %@ and say something.";

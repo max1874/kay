@@ -12,7 +12,7 @@ struct KayApp: App {
         Window("Kay", id: KayApp.mainWindow) {
             ContentView()
         }
-        .defaultSize(width: 760, height: 680)
+        .defaultSize(width: 960, height: 680)
         .windowResizability(.contentMinSize)
         // Read once: this scene must not depend on changing state (see showMenuBarIcon).
         .defaultLaunchBehavior(AppModel.showsDockIcon ? .automatic : .suppressed)
@@ -21,10 +21,11 @@ struct KayApp: App {
         .handlesExternalEvents(matching: [KayApp.mainWindow])
         .commands {
             CommandGroup(replacing: .newItem) {}
-        }
-
-        Settings {
-            SettingsView()
+            // Settings are a pane of the main window; ⌘, goes there instead of to a Settings window.
+            CommandGroup(replacing: .appSettings) {
+                Button("Settings…") { Pane.general.show() }
+                    .keyboardShortcut(",")
+            }
         }
 
         // MenuBarExtra writes the binding back as it updates; only a real change may reach storage.
@@ -99,18 +100,14 @@ private struct MenuBarIcon: View {
 
 private struct MenuBarMenu: View {
     @Environment(\.openWindow) private var openWindow
-    @Environment(\.openSettings) private var openSettings
 
     var body: some View {
         Button("Open Kay") {
             NSApp.activate()
             openWindow(id: KayApp.mainWindow)
         }
-        Button("Settings…") {
-            NSApp.activate()
-            openSettings()
-        }
-        .keyboardShortcut(",")
+        Button("Settings…") { Pane.general.show() }
+            .keyboardShortcut(",")
         Button("Check for Updates…") { Updater.shared.checkForUpdates() }
         Divider()
         Button("Quit Kay") { NSApp.terminate(nil) }

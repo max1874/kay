@@ -1,26 +1,50 @@
 import AppKit
 import SwiftUI
 
-enum SettingsTab: String {
-    case general, speech
+/// What the main window shows. Settings are panes of the main window, picked from its sidebar, not a window
+/// of their own: a second window opening over the first was one more thing to find and close (Max, 2026-10-07).
+enum Pane: String, CaseIterable, Identifiable {
+    case dictations, general, speech
 
-    /// Shared with Home, whose "Add API Key" opens Settings on the Speech Service tab.
-    static let storageKey = "settings.tab"
+    var id: String { rawValue }
+
+    /// Remembered across launches, and switched from elsewhere: Home's "Add API Key", the menu bar's
+    /// Settings…, ⌘,.
+    static let storageKey = "main.pane"
+
+    var title: LocalizedStringKey {
+        switch self {
+        case .dictations: "Dictations"
+        case .general: "General"
+        case .speech: "Speech Service"
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .dictations: "text.bubble"
+        case .general: "gearshape"
+        case .speech: "waveform.badge.mic"
+        }
+    }
+
+    /// Opens the main window on this pane, from anywhere — a menu, the menu bar.
+    func show() {
+        UserDefaults.standard.set(rawValue, forKey: Self.storageKey)
+        KayApp.showMainWindow()
+    }
 }
 
-struct SettingsView: View {
-    @AppStorage(SettingsTab.storageKey) private var tab = SettingsTab.general
+/// A settings pane in the main window's detail column.
+struct SettingsPane: View {
+    let pane: Pane
 
     var body: some View {
-        TabView(selection: $tab) {
-            GeneralSettings()
-                .tabItem { Label("General", systemImage: "gearshape") }
-                .tag(SettingsTab.general)
-            SpeechSettings()
-                .tabItem { Label("Speech Service", systemImage: "waveform.badge.mic") }
-                .tag(SettingsTab.speech)
+        switch pane {
+        case .general: GeneralSettings()
+        case .speech: SpeechSettings()
+        case .dictations: EmptyView()
         }
-        .frame(width: 560)
     }
 }
 

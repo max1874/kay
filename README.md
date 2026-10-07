@@ -42,7 +42,7 @@ sends audio while you hold the key.
   misrecognition can be played back or sent again (for example with `tools/ab.py`). A dictation cut off by a
   crash or quit is recognized again at the next launch and lands in History. Deleting an entry, or Clear All,
   deletes its audio.
-- **Microphone.** Settings → General picks the input device; when it isn't connected, Kay records from the
+- **Microphone.** General (in the main window's sidebar) picks the input device; when it isn't connected, Kay records from the
   system default.
 
 ### Privacy

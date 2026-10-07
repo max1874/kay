@@ -1,9 +1,35 @@
 import AppKit
 import SwiftUI
 
-/// The main window does two things: says whether Kay can dictate, and gives back what you said.
-/// One column: status and usage on top, then every dictation as a card, newest first.
+/// The main window: a sidebar with what you said and Kay's settings, and the chosen pane beside it.
 struct ContentView: View {
+    @AppStorage(Pane.storageKey) private var pane = Pane.dictations
+
+    var body: some View {
+        NavigationSplitView {
+            List(selection: Binding<Pane?>(get: { pane }, set: { if let chosen = $0 { pane = chosen } })) {
+                Label(Pane.dictations.title, systemImage: Pane.dictations.symbol).tag(Pane.dictations)
+                Section("Settings") {
+                    ForEach([Pane.general, .speech]) { Label($0.title, systemImage: $0.symbol).tag($0) }
+                }
+            }
+            .navigationSplitViewColumnWidth(min: 170, ideal: 190, max: 240)
+        } detail: {
+            switch pane {
+            case .dictations:
+                DictationsView()
+            case .general, .speech:
+                SettingsPane(pane: pane)
+                    .navigationTitle(pane.title)
+            }
+        }
+        .frame(minWidth: 720, minHeight: 460)
+    }
+}
+
+/// Says whether Kay can dictate, and gives back what you said. One column: status and usage on top, then
+/// every dictation as a card, newest first.
+private struct DictationsView: View {
     @ObservedObject private var model = AppModel.shared
     @State private var query = ""
 
@@ -53,15 +79,6 @@ struct ContentView: View {
         .scrollEdgeEffectStyle(.soft, for: .top)
         .navigationTitle("Kay")
         .searchable(text: $query, placement: .toolbar, prompt: Text("Search Dictations"))
-        .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                SettingsLink {
-                    Label("Settings", systemImage: "gearshape")
-                }
-                .help("Speech service, shortcut and permissions")
-            }
-        }
-        .frame(minWidth: 560, minHeight: 460)
     }
 }
 
@@ -71,8 +88,7 @@ struct ContentView: View {
 private struct StatusHeader: View {
     @ObservedObject private var model = AppModel.shared
     @ObservedObject private var speech = SpeechService.shared
-    @Environment(\.openSettings) private var openSettings
-    @AppStorage(SettingsTab.storageKey) private var settingsTab = SettingsTab.general
+    @AppStorage(Pane.storageKey) private var pane = Pane.dictations
 
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
@@ -109,8 +125,7 @@ private struct StatusHeader: View {
                     SetupCard(done: speech.status.isUsable, symbol: "key.fill", tint: .purple,
                               title: "Speech Service", detail: speech.status.summary(maskedKey: speech.maskedKey),
                               action: "Add API Key") {
-                        settingsTab = .speech
-                        openSettings()
+                        pane = .speech
                     }
                 }
             }
