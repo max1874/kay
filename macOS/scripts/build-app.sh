@@ -15,9 +15,12 @@ PLIST="$RES/Info.plist"
 VERSION="$(/usr/bin/plutil -extract CFBundleShortVersionString raw "$PLIST")"
 
 cd "$ROOT"
-echo "==> swift build -c release"
-swift build -c release
-BIN="$(swift build -c release --show-bin-path)/Kay"
+# CONFIG=debug builds the same bundle with the DEBUG-only previews in it (see SettingsPreview.swift); the
+# release pipeline always takes the default.
+CONFIG="${CONFIG:-release}"
+echo "==> swift build -c $CONFIG"
+swift build -c "$CONFIG"
+BIN="$(swift build -c "$CONFIG" --show-bin-path)/Kay"
 
 echo "==> assembling $APP ($VERSION)"
 rm -rf "$APP"

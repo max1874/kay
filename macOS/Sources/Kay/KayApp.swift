@@ -76,7 +76,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // minimize from the Dock's own transaction).
             let event = NSApp.currentEvent.map { e -> String in
                 let keys = e.type == .keyDown || e.type == .keyUp ? " \(e.modifierFlags.rawValue) \(e.charactersIgnoringModifiers ?? "")" : ""
-                return "type \(e.type.rawValue)\(keys)"
+                // Where a click landed, in which window, and how many: the yellow button, a double click on
+                // a title bar, or something else. Click count only for a mouse event, for the same reason.
+                let mouse: Set<NSEvent.EventType> = [.leftMouseDown, .leftMouseUp, .rightMouseDown, .rightMouseUp]
+                let click = mouse.contains(e.type)
+                    ? " in \(e.window?.identifier?.rawValue ?? e.window?.title ?? "no window") at \(Int(e.locationInWindow.x)),\(Int(e.locationInWindow.y)) x\(e.clickCount)"
+                    : ""
+                return "type \(e.type.rawValue)\(keys)\(click)"
             } ?? "none"
             log.notice("window minimized: \(window?.identifier?.rawValue ?? "?", privacy: .public), event \(event, privacy: .public)")
         }

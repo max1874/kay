@@ -110,6 +110,7 @@
 "Kay can't use the microphone. Allow it in System Settings." = "Kay 无法使用麦克风，请在系统设置中允许。";
 "The microphone didn't start: %@" = "麦克风启动失败：%@";
 "Didn't catch that." = "没听清。";
+"Recording" = "录音";
 "System Default" = "系统默认";
 "System Default (%@)" = "系统默认（%@）";
 "Not Connected" = "未连接";
