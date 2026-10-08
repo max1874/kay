@@ -72,14 +72,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NotificationCenter.default.addObserver(forName: NSWindow.didMiniaturizeNotification, object: nil,
                                                queue: .main) { note in
             let window = note.object as? NSWindow
-            let event = NSApp.currentEvent.map { "\($0.type.rawValue) \($0.charactersIgnoringModifiers ?? "")" } ?? "none"
+            // Characters only for a key event: asked of any other event, AppKit throws (1.5.11, on every
+            // minimize from the Dock's own transaction).
+            let event = NSApp.currentEvent.map { e -> String in
+                let keys = e.type == .keyDown || e.type == .keyUp ? " \(e.modifierFlags.rawValue) \(e.charactersIgnoringModifiers ?? "")" : ""
+                return "type \(e.type.rawValue)\(keys)"
+            } ?? "none"
             log.notice("window minimized: \(window?.identifier?.rawValue ?? "?", privacy: .public), event \(event, privacy: .public)")
         }
     }
 
     /// Clicking the Dock icon, or opening Kay again from Spotlight or Finder, with no window up.
+    /// `hasVisibleWindows` counts a minimized window as visible, so 1.5.11 never got as far as restoring
+    /// one: what counts here is a window actually on screen.
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows: Bool) -> Bool {
-        if !hasVisibleWindows { KayApp.showMainWindow() }
+        let onScreen = sender.windows.contains { $0.isVisible && !$0.isMiniaturized && $0.styleMask.contains(.titled) }
+        log.notice("reopen: \(hasVisibleWindows ? "visible" : "no visible", privacy: .public) windows by AppKit's count, \(onScreen ? "one" : "none", privacy: .public) on screen")
+        if !onScreen { KayApp.showMainWindow() }
         return false
     }
 
