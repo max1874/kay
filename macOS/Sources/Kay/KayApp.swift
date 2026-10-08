@@ -40,6 +40,14 @@ struct KayApp: App {
 
     static func showMainWindow() {
         NSApp.activate()
+        // A minimized window still exists, and SwiftUI won't open it again: 1.5.10 got its window minimized,
+        // then neither the Dock icon nor Spotlight could bring it back. Bring it back here.
+        if let window = NSApp.windows.first(where: { $0.identifier?.rawValue == mainWindow && $0.isMiniaturized }) {
+            log.notice("restoring the minimized main window")
+            window.deminiaturize(nil)
+            window.makeKeyAndOrderFront(nil)
+            return
+        }
         NSWorkspace.shared.open(URL(string: "kay://\(mainWindow)")!)
     }
 }
@@ -58,6 +66,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NotificationCenter.default.addObserver(forName: NSWindow.willCloseNotification, object: nil,
                                                queue: .main) { _ in
             DispatchQueue.main.async { AppModel.hideDockIconIfWindowless() }
+        }
+        // Max pressed ⌘, and the main window went to the Dock (2026-10-08); nothing recorded why. With the
+        // event that was being handled, the next one says.
+        NotificationCenter.default.addObserver(forName: NSWindow.didMiniaturizeNotification, object: nil,
+                                               queue: .main) { note in
+            let window = note.object as? NSWindow
+            let event = NSApp.currentEvent.map { "\($0.type.rawValue) \($0.charactersIgnoringModifiers ?? "")" } ?? "none"
+            log.notice("window minimized: \(window?.identifier?.rawValue ?? "?", privacy: .public), event \(event, privacy: .public)")
         }
     }
 
