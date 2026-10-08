@@ -110,6 +110,7 @@
 "Kay can't use the microphone. Allow it in System Settings." = "Kay can't use the microphone. Allow it in System Settings.";
 "The microphone didn't start: %@" = "The microphone didn't start: %@";
 "Didn't catch that." = "Didn't catch that.";
+"Recording" = "Recording";
 "System Default" = "System Default";
 "System Default (%@)" = "System Default (%@)";
 "Not Connected" = "Not Connected";
