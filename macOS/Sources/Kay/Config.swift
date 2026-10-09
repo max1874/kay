@@ -1,23 +1,21 @@
 import Foundation
 
-/// 1.0.0 kept the API key in a JSON file; from 1.1.0 it lives in the Keychain.
-/// Only read once, to move the key over, then deleted.
-enum LegacyConfig {
-    private struct Config: Codable {
-        var volcApiKey: String
-    }
+/// A private setup file explicitly prepared for this installation, consumed once by Kay.
+/// The app itself saves the key, preserving Keychain access under its signing identity.
+/// Old Volcengine configuration and its Keychain item remain untouched for rollback.
+struct QwenSetup: Decodable {
+    let apiKey: String
+    let workspaceURL: String
 
-    private static var url: URL { AppFiles.directory.appendingPathComponent("config.json") }
+    private static var url: URL { AppFiles.directory.appendingPathComponent("qwen-setup.json") }
 
-    static func takeApiKey() -> String? {
+    static func load() -> QwenSetup? {
         guard let data = try? Data(contentsOf: url),
-              let key = try? JSONDecoder().decode(Config.self, from: data).volcApiKey,
-              !key.isEmpty
+              let setup = try? JSONDecoder().decode(Self.self, from: data),
+              !setup.apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         else { return nil }
-        return key
+        return setup
     }
 
-    static func remove() {
-        try? FileManager.default.removeItem(at: url)
-    }
+    static func remove() { try? FileManager.default.removeItem(at: url) }
 }

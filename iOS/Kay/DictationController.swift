@@ -3,7 +3,7 @@ import AVFoundation
 import UIKit
 import WidgetKit
 
-/// One dictation at a time: start streams the microphone to Doubao, stop waits for the final text and
+/// One dictation at a time: start streams the microphone to Qwen, stop waits for the final text and
 /// puts it on the clipboard. Driven by the control (Action Button, Control Center, Lock Screen) and by
 /// the button in the app, which call the same `toggle()`.
 @MainActor
@@ -23,7 +23,7 @@ final class DictationController: ObservableObject {
     @Published private(set) var lastError: String?
 
     private var capture: AudioCapture?
-    private var session: DoubaoSession?
+    private var session: QwenSession?
     private var activity: Activity<DictationActivityAttributes>?
     private var startedAt = Date()
     /// Text iOS wouldn't let Kay put on the clipboard from the background; copied when Kay comes forward.
@@ -73,7 +73,7 @@ final class DictationController: ObservableObject {
         lastError = nil
         let speech = SpeechService.shared
         guard let apiKey = speech.apiKey else {
-            throw fail(String(localized: "Add your Volcengine API key in Kay first."))
+            throw fail(String(localized: "Add your Alibaba Cloud API key in Kay first."))
         }
         guard AVAudioApplication.shared.recordPermission == .granted else {
             throw fail(String(localized: "Kay can't use the microphone. Open Kay once and allow it."))
@@ -94,7 +94,7 @@ final class DictationController: ObservableObject {
             throw fail(message)
         }
 
-        let session = DoubaoSession(apiKey: apiKey, resourceId: speech.resourceId)
+        let session = QwenSession(apiKey: apiKey, workspaceURL: speech.workspaceURL)
         let capture = AudioCapture()
         capture.onChunk = { [weak session] in session?.sendAudio($0) }
         do {

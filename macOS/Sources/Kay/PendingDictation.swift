@@ -4,13 +4,13 @@ import Foundation
 ///
 /// A process that ends between pressing the key and recording the result takes what was said with it:
 /// 1.4.4–1.5.2 crashed at exactly that point on every dictation (one of them 4 minutes long), and an install
-/// that quit Kay mid-dictation lost another (2026-10-07). So the 16 kHz PCM that goes to Doubao is also
+/// that quit Kay mid-dictation lost another (2026-10-07). So the 16 kHz PCM that goes to the speech service is also
 /// appended to `pending-<time>.pcm`; recording the result — text or error — or cancelling deletes it. A file
 /// still there at launch is a dictation that never landed: Kay recognizes it again and records it in history,
 /// without pasting, since the place it was meant for is long gone.
 ///
 /// Once the outcome is in history, the audio of the last 20 dictations is kept as `recent/<entry id>.wav`
-/// (16 kHz mono, on this Mac only): a misrecognition can then be played back and sent again — to Doubao
+/// (16 kHz mono, on this Mac only): a misrecognition can then be played back and sent again — to the speech service
 /// with hotwords, or to another engine with tools/ab.py — instead of guessed at. Deleting an entry or
 /// clearing history deletes its audio.
 final class PendingDictation {
@@ -87,7 +87,7 @@ final class PendingDictation {
         try? FileManager.default.removeItem(at: recentDirectory)
     }
 
-    /// 16 kHz, 16-bit, mono PCM: what AudioCapture produces and Doubao is sent.
+    /// 16 kHz, 16-bit, mono PCM: what AudioCapture produces and the speech service is sent.
     private static func wavHeader(bytes: Int) -> Data {
         func u32(_ v: Int) -> Data { withUnsafeBytes(of: UInt32(v).littleEndian) { Data($0) } }
         func u16(_ v: Int) -> Data { withUnsafeBytes(of: UInt16(v).littleEndian) { Data($0) } }
