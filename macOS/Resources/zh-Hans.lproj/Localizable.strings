@@ -113,6 +113,7 @@
 "No API key yet. Add one in Kay → Settings → Speech Service." = "还没有 API Key，请在 Kay → 设置 → 语音服务中填写。";
 "Kay can't use the microphone. Allow it in System Settings." = "Kay 无法使用麦克风，请在系统设置中允许。";
 "The microphone didn't start: %@" = "麦克风启动失败：%@";
+"The microphone didn't respond." = "麦克风没有响应。";
 "Didn't catch that." = "没听清。";
 "System Default" = "系统默认";
 "System Default (%@)" = "系统默认（%@）";

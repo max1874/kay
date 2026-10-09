@@ -84,7 +84,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     : ""
                 return "type \(e.type.rawValue)\(keys)\(click)"
             } ?? "none"
-            log.notice("window minimized: \(window?.identifier?.rawValue ?? "?", privacy: .public), event \(event, privacy: .public)")
+            log.notice("window minimized: \(window?.identifier?.rawValue ?? "?"), event \(event)")
         }
     }
 
@@ -93,7 +93,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// one: what counts here is a window actually on screen.
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows: Bool) -> Bool {
         let onScreen = sender.windows.contains { $0.isVisible && !$0.isMiniaturized && $0.styleMask.contains(.titled) }
-        log.notice("reopen: \(hasVisibleWindows ? "visible" : "no visible", privacy: .public) windows by AppKit's count, \(onScreen ? "one" : "none", privacy: .public) on screen")
+        log.notice("reopen: \(hasVisibleWindows ? "visible" : "no visible") windows by AppKit's count, \(onScreen ? "one" : "none") on screen")
         if !onScreen { KayApp.showMainWindow() }
         return false
     }

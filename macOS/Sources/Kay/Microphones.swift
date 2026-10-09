@@ -34,6 +34,10 @@ enum Microphones {
     }
 
     static func defaultName() -> String? {
+        systemDefault()?.name
+    }
+
+    static func systemDefault() -> (id: AudioDeviceID, name: String)? {
         var address = AudioObjectPropertyAddress(mSelector: kAudioHardwarePropertyDefaultInputDevice,
                                                  mScope: kAudioObjectPropertyScopeGlobal,
                                                  mElement: kAudioObjectPropertyElementMain)
@@ -41,7 +45,32 @@ enum Microphones {
         var size = UInt32(MemoryLayout<AudioDeviceID>.size)
         guard AudioObjectGetPropertyData(AudioObjectID(kAudioObjectSystemObject), &address, 0, nil, &size, &id) == noErr,
               id != 0 else { return nil }
-        return string(id, kAudioObjectPropertyName)
+        return (id, string(id, kAudioObjectPropertyName) ?? "device \(id)")
+    }
+
+    /// The Mac's own microphone, if it has one (a MacBook does, a Mac mini doesn't): the fallback when the
+    /// microphone a dictation should use doesn't start.
+    static func builtIn() -> (id: AudioDeviceID, name: String)? {
+        for id in deviceIDs() where transport(id) == kAudioDeviceTransportTypeBuiltIn && hasInput(id) {
+            return (id, string(id, kAudioObjectPropertyName) ?? "built-in microphone")
+        }
+        return nil
+    }
+
+    /// Bluetooth input starts by switching the headset's profile, which takes seconds rather than milliseconds.
+    static func isBluetooth(_ id: AudioDeviceID) -> Bool {
+        let type = transport(id)
+        return type == kAudioDeviceTransportTypeBluetooth || type == kAudioDeviceTransportTypeBluetoothLE
+    }
+
+    private static func transport(_ id: AudioDeviceID) -> UInt32? {
+        var address = AudioObjectPropertyAddress(mSelector: kAudioDevicePropertyTransportType,
+                                                 mScope: kAudioObjectPropertyScopeGlobal,
+                                                 mElement: kAudioObjectPropertyElementMain)
+        var value = UInt32(0)
+        var size = UInt32(MemoryLayout<UInt32>.size)
+        guard AudioObjectGetPropertyData(id, &address, 0, nil, &size, &value) == noErr else { return nil }
+        return value
     }
 
     private static func deviceIDs() -> [AudioDeviceID] {

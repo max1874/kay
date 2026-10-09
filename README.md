@@ -46,7 +46,10 @@ Existing Doubao keys are kept separately and are never sent to Alibaba Cloud.
   crash or quit is recognized again at the next launch and lands in History. Deleting an entry, or Clear All,
   deletes its audio.
 - **Microphone.** The microphone menu under the status line in Kay's window picks the input device; when it isn't connected, Kay records from the
-  system default.
+  system default. If that microphone doesn't start within 2 seconds, Kay falls back to the Mac's built-in one.
+- **Logs.** `~/Library/Logs/Kay/kay.log` (rotated, about 8 MB in all) records each dictation's microphones,
+  timings and outcome, never its text. If Kay's main thread stops answering during a dictation, a snapshot of
+  every thread and the last minutes of the system log goes to `~/Library/Logs/Kay/hangs/<time>/`.
 
 ### Privacy
 

@@ -10,12 +10,13 @@ final class AudioCapture {
     var onChunk: ((Data) -> Void)?
     /// Loudness of each converted buffer, 0...1, about 20 times a second. Drives the waveforms.
     var onLevel: ((Float) -> Void)?
-#if os(macOS)
-    /// The input device to record from; nil is the system default. Set before `start()`.
-    var inputDevice: AudioDeviceID?
-#endif
 
+#if os(macOS)
+    private var input: HALInput?
+    private var attempt: StartAttempt?
+#else
     private let engine = AVAudioEngine()
+#endif
     private let target = AVAudioFormat(commonFormat: .pcmFormatInt16, sampleRate: 16000,
                                        channels: 1, interleaved: true)!
     private let queue = DispatchQueue(label: "kay.audio")
@@ -28,16 +29,58 @@ final class AudioCapture {
         queue.sync { Double(recordedBytes) / (16000 * 2) }
     }
 
+#if os(macOS)
+    /// Starts recording from `device` on a thread of its own and gives up after `timeout`, throwing.
+    ///
+    /// Core Audio has hung for good while a recording started (2026-10-09), and the main thread, which this
+    /// used to run on, went with it: no HUD, no Dock icon, nothing until a force quit. Now only that thread is
+    /// lost; if the start completes after all, it stops the unit again. One start per instance: after a
+    /// failure, take a new AudioCapture.
+    func start(device: AudioDeviceID, timeout: TimeInterval) throws {
+        let attempt = StartAttempt()
+        self.attempt = attempt
+        let thread = Thread { [self] in
+            let result = Result { () throws -> HALInput in
+                let input = try HALInput(device: device)
+                guard let converter = AVAudioConverter(from: input.format, to: target) else {
+                    input.stop()
+                    throw KayError(message: "no converter from \(input.format)")
+                }
+                self.converter = converter
+                input.onBuffer = { [weak self] in self?.convert($0) }
+                do {
+                    try input.start()
+                } catch {
+                    input.stop()
+                    throw error
+                }
+                return input
+            }
+            if !attempt.finish(result), case .success(let input) = result {
+                input.stop()  // too late: whoever started it has moved on
+            }
+        }
+        thread.name = "kay.audio.start"
+        thread.start()
+        guard let result = attempt.wait(timeout) else {
+            throw KayError(message: String(localized: "The microphone didn't respond."))
+        }
+        input = try result.get()
+    }
+
+    /// 停止采集，返回尚未发出的尾部音频。
+    func stop() -> Data {
+        input?.stop()
+        input = nil
+        return queue.sync {
+            let rest = buffer
+            buffer = Data()
+            return rest
+        }
+    }
+#else
     func start() throws {
         let input = engine.inputNode
-#if os(macOS)
-        // On the input unit before its format is read: the format is the device's. If the device can't be
-        // set (unplugged since it was looked up), the system default records instead.
-        if var device = inputDevice, let unit = input.audioUnit {
-            AudioUnitSetProperty(unit, kAudioOutputUnitProperty_CurrentDevice, kAudioUnitScope_Global, 0,
-                                 &device, UInt32(MemoryLayout<AudioDeviceID>.size))
-        }
-#endif
         let format = input.outputFormat(forBus: 0)
         guard format.sampleRate > 0, let converter = AVAudioConverter(from: format, to: target) else {
             throw KayError(message: String(localized: "No microphone input is available."))
@@ -60,6 +103,7 @@ final class AudioCapture {
             return rest
         }
     }
+#endif
 
     /// RMS on a log scale, so ordinary speech fills most of the range instead of a sliver of it.
     private static func level(_ samples: UnsafePointer<Int16>, count: Int) -> Float {
@@ -74,6 +118,10 @@ final class AudioCapture {
     }
 
     private func convert(_ input: AVAudioPCMBuffer) {
+#if os(macOS)
+        // A start given up on that went through after all is not the dictation's audio.
+        guard attempt?.isAbandoned != true else { return }
+#endif
         guard let converter else { return }
         let capacity = AVAudioFrameCount(Double(input.frameLength) * target.sampleRate / input.format.sampleRate) + 32
         guard let out = AVAudioPCMBuffer(pcmFormat: target, frameCapacity: capacity) else { return }
@@ -103,3 +151,43 @@ final class AudioCapture {
         }
     }
 }
+
+#if os(macOS)
+/// The handoff between a start on its own thread and the caller waiting for it, which may stop waiting first.
+private final class StartAttempt {
+    private let lock = NSLock()
+    private let done = DispatchSemaphore(value: 0)
+    private var result: Result<HALInput, Error>?
+    private var abandoned = false
+
+    var isAbandoned: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return abandoned
+    }
+
+    /// False if the caller has already given up, and the result is the starting thread's to clean up.
+    func finish(_ result: Result<HALInput, Error>) -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        guard !abandoned else { return false }
+        self.result = result
+        done.signal()
+        return true
+    }
+
+    /// nil after `timeout`; from then on `finish` reports the caller gone.
+    func wait(_ timeout: TimeInterval) -> Result<HALInput, Error>? {
+        if done.wait(timeout: .now() + timeout) == .success {
+            lock.lock()
+            defer { lock.unlock() }
+            return result
+        }
+        lock.lock()
+        defer { lock.unlock() }
+        if let result { return result }  // finished between the timeout and the lock
+        abandoned = true
+        return nil
+    }
+}
+#endif

@@ -31,7 +31,7 @@ final class PendingDictation {
             guard FileManager.default.createFile(atPath: url.path, contents: nil) else { return nil }
             handle = try FileHandle(forWritingTo: url)
         } catch {
-            log.error("pending audio not kept: \(error.localizedDescription, privacy: .public)")
+            log.error("pending audio not kept: \(error.localizedDescription)")
             return nil
         }
     }
