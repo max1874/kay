@@ -32,7 +32,7 @@ final class Updater: NSObject, SPUUpdaterDelegate {
 
     func updater(_ updater: SPUUpdater, willInstallUpdateOnQuit item: SUAppcastItem,
                  immediateInstallationBlock: @escaping () -> Void) -> Bool {
-        log.notice("update \(item.displayVersionString, privacy: .public) downloaded, installing when idle")
+        log.notice("update \(item.displayVersionString) downloaded, installing when idle")
         pendingInstall = immediateInstallationBlock
         installWhenIdle()
         return true

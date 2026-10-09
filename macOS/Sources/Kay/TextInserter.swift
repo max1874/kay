@@ -19,7 +19,7 @@ enum TextInserter {
         let saved = snapshot(pasteboard, within: snapshotBudget)
         let waited = Int(Date().timeIntervalSince(started) * 1000)
         if saved == nil {
-            log.notice("the clipboard didn't read within \(waited, privacy: .public) ms; pasting without restoring it")
+            log.notice("the clipboard didn't read within \(waited) ms; pasting without restoring it")
         }
         // Someone wrote to it while it was being read: what was read is no longer what they have there.
         let restore = pasteboard.changeCount == before ? saved : nil
@@ -34,7 +34,7 @@ enum TextInserter {
             event?.flags = .maskCommand
             event?.post(tap: .cghidEventTap)
         }
-        log.notice("pasted after \(waited, privacy: .public) ms on the clipboard")
+        log.notice("pasted after \(waited) ms on the clipboard")
 
         guard let restore else { return }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {

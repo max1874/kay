@@ -1,10 +1,8 @@
 import AppKit
 import AVFoundation
 import Combine
+import CoreAudio
 import ServiceManagement
-import os
-
-let log = Logger(subsystem: "com.max1874.kay", category: "app")
 
 /// Dictation, permissions and history. Views observe it; the hotkey drives it.
 final class AppModel: ObservableObject {
@@ -14,6 +12,10 @@ final class AppModel: ObservableObject {
 
     /// 按住不足这个时长视为误触，不识别。
     private static let minHold: TimeInterval = 0.3
+    /// How long a microphone gets to start before the next one is tried. A wired or built-in one takes under
+    /// 100 ms (500 ms for the Studio Display's); a Bluetooth headset first has to switch profiles.
+    private static let microphoneTimeout: TimeInterval = 2
+    private static let bluetoothMicrophoneTimeout: TimeInterval = 8
     /// Read by `@AppStorage` in the App and Settings; the model never observes it, since the scene
     /// that binds it must not depend on this object (1.2.0 looped rebuilding the menu bar that way).
     static let menuBarIconKey = "showMenuBarIcon"
@@ -41,7 +43,9 @@ final class AppModel: ObservableObject {
         NSApp.setActivationPolicy(.accessory)
     }
 
-    @Published private(set) var state = State.idle
+    @Published private(set) var state = State.idle {
+        didSet { if state == .idle { HangWatchdog.shared.disarm() } }
+    }
     @Published private(set) var history: [HistoryEntry] = []
     @Published private(set) var microphone = AVCaptureDevice.authorizationStatus(for: .audio)
     @Published private(set) var accessibility = AXIsProcessTrusted()
@@ -74,6 +78,8 @@ final class AppModel: ObservableObject {
     }
 
     func start() {
+        let info = Bundle.main.infoDictionary
+        log.notice("Kay \(info?["CFBundleShortVersionString"] as? String ?? "?") (\(info?["CFBundleVersion"] as? String ?? "?")) started")
         history = HistoryStore.load()
         // `isReady` reads the speech status, so views watching only this model must hear about it too.
         speechChanges = speech.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }
@@ -176,7 +182,7 @@ final class AppModel: ObservableObject {
             do {
                 if newValue { try SMAppService.mainApp.register() } else { try SMAppService.mainApp.unregister() }
             } catch {
-                log.error("launch at login: \(error.localizedDescription, privacy: .public)")
+                log.error("launch at login: \(error.localizedDescription)")
             }
             objectWillChange.send()
         }
@@ -235,27 +241,52 @@ final class AppModel: ObservableObject {
             return
         }
 
+        // Until the dictation is over; `state` disarms it on the way back to idle, and the defer when it never starts.
+        HangWatchdog.shared.arm()
+        defer { if state == .idle { HangWatchdog.shared.disarm() } }
+        // The hold counts from the key, not from the microphone being ready: a key let go while a slow start
+        // was waited for is a dictation to recognize (or report as not caught), not a mistap to drop silently.
+        let pressed = Date()
+
         let session = QwenSession(apiKey: apiKey, workspaceURL: speech.workspaceURL)
-        let capture = AudioCapture()
-        let microphone = Microphones.chosen()
-        capture.inputDevice = microphone?.id
-        log.notice("recording from \(microphone?.name ?? "the system default", privacy: .public)")
         let pending = PendingDictation()
-        capture.onChunk = { [weak session] in
-            session?.sendAudio($0)
-            pending?.append($0)
+        // The chosen microphone (or the system default), then the Mac's own if that one doesn't start.
+        var microphones: [(id: AudioDeviceID, name: String)] = []
+        if let first = Microphones.chosen() ?? Microphones.systemDefault() { microphones.append(first) }
+        if let builtIn = Microphones.builtIn(), !microphones.contains(where: { $0.id == builtIn.id }) {
+            microphones.append(builtIn)
         }
-        capture.onLevel = { [weak self] level in
-            DispatchQueue.main.async {
-                guard let self, self.state == .recording else { return }
-                self.hud.level(level)
+        log.notice("key down; microphones to try: \(microphones.map { "\($0.name) [\($0.id)]" }.joined(separator: ", ")); system default: \(Microphones.defaultName() ?? "none")")
+
+        var started: AudioCapture?
+        var failure: Error = KayError(message: String(localized: "No microphone input is available."))
+        for microphone in microphones {
+            let capture = AudioCapture()
+            capture.onChunk = { [weak session] in
+                session?.sendAudio($0)
+                pending?.append($0)
+            }
+            capture.onLevel = { [weak self] level in
+                DispatchQueue.main.async {
+                    guard let self, self.state == .recording else { return }
+                    self.hud.level(level)
+                }
+            }
+            let t = Date()
+            do {
+                try capture.start(device: microphone.id, timeout: Microphones.isBluetooth(microphone.id)
+                                    ? Self.bluetoothMicrophoneTimeout : Self.microphoneTimeout)
+                log.notice("recording from \(microphone.name), started in \(Int(Date().timeIntervalSince(t) * 1000)) ms")
+                started = capture
+                break
+            } catch {
+                failure = error
+                log.error("\(microphone.name) didn't start after \(Int(Date().timeIntervalSince(t) * 1000)) ms: \(error.localizedDescription)")
             }
         }
-        do {
-            try capture.start()
-        } catch {
+        guard let capture = started else {
             pending?.discard()
-            hud.flash(String(localized: "The microphone didn't start: \(error.localizedDescription)"),
+            hud.flash(String(localized: "The microphone didn't start: \(failure.localizedDescription)"),
                       symbol: "mic.slash.fill", seconds: 3)
             return
         }
@@ -264,7 +295,7 @@ final class AppModel: ObservableObject {
         self.session = session
         self.capture = capture
         self.pending = pending
-        pressedAt = Date()
+        pressedAt = pressed
         state = .recording
         hud.listen(since: pressedAt)
     }
@@ -276,10 +307,13 @@ final class AppModel: ObservableObject {
         let seconds = capture.recordedSeconds
         self.capture = nil
 
-        if Date().timeIntervalSince(pressedAt) < Self.minHold {
+        let held = Date().timeIntervalSince(pressedAt)
+        if held < Self.minHold {
+            log.notice("key up after \(Int(held * 1000)) ms: too short")
             cancel()
             return
         }
+        log.notice("key up after \(String(format: "%.1f", held)) s, \(String(format: "%.1f", seconds)) s of audio")
 
         state = .processing
         hud.recognize()
@@ -305,7 +339,7 @@ final class AppModel: ObservableObject {
         switch result {
         case .success(let raw):
             let text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-            log.notice("final in \(ms, privacy: .public) ms, \(text.count, privacy: .public) chars")
+            log.notice("final in \(ms) ms, \(text.count) chars")
             guard !text.isEmpty else {
                 hud.flash(String(localized: "Didn't catch that."), symbol: "ear.trianglebadge.exclamationmark")
                 return
@@ -323,7 +357,7 @@ final class AppModel: ObservableObject {
             }
         case .failure(let error):
             let message = error.localizedDescription
-            log.error("recognition failed: \(message, privacy: .public)")
+            log.error("recognition failed: \(message)")
             if let kayError = error as? KayError, kayError.isAuthFailure {
                 speech.markFailed(message)
             }
@@ -335,6 +369,7 @@ final class AppModel: ObservableObject {
     }
 
     private func cancel() {
+        if state != .idle { log.notice("dictation cancelled") }
         _ = capture?.stop()
         capture = nil
         pending?.discard()
@@ -377,7 +412,7 @@ final class AppModel: ObservableObject {
                 switch result {
                 case .success(let raw):
                     let text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-                    log.notice("recovered an unfinished dictation of \(seconds, privacy: .public) s: \(text.count, privacy: .public) chars")
+                    log.notice("recovered an unfinished dictation of \(seconds) s: \(text.count) chars")
                     if !text.isEmpty {
                         let entry = HistoryEntry(date: started, text: text, audioSeconds: seconds, latencyMs: nil)
                         self.record(entry)
@@ -388,7 +423,7 @@ final class AppModel: ObservableObject {
                     try? FileManager.default.removeItem(at: url)
                 case .failure(let error):
                     // Kept for the next launch: no network yet at login is the usual reason.
-                    log.error("unfinished dictation not recovered yet: \(error.localizedDescription, privacy: .public)")
+                    log.error("unfinished dictation not recovered yet: \(error.localizedDescription)")
                 }
                 self.recover(next, apiKey: apiKey)
             }

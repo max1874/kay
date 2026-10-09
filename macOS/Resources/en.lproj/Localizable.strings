@@ -113,6 +113,7 @@
 "No API key yet. Add one in Kay → Settings → Speech Service." = "No API key yet. Add one in Kay → Settings → Speech Service.";
 "Kay can't use the microphone. Allow it in System Settings." = "Kay can't use the microphone. Allow it in System Settings.";
 "The microphone didn't start: %@" = "The microphone didn't start: %@";
+"The microphone didn't respond." = "The microphone didn't respond.";
 "Didn't catch that." = "Didn't catch that.";
 "System Default" = "System Default";
 "System Default (%@)" = "System Default (%@)";
