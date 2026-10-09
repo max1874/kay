@@ -43,10 +43,10 @@
 "Dictations Today" = "Dictations Today";
 "Characters" = "Characters";
 "Audio Sent" = "Audio Sent";
-"Volcengine Console" = "Volcengine Console";
+"Alibaba Cloud Console" = "Alibaba Cloud Console";
 
 /* Live */
-"Volcengine Doubao" = "Volcengine Doubao";
+"Qwen Audio 3.1 · streaming" = "Qwen Audio 3.1 · streaming";
 "Recognizing…" = "Recognizing…";
 
 /* Settings */
@@ -65,10 +65,10 @@
 "History" = "History";
 "Show in Finder" = "Show in Finder";
 "Version" = "Version";
-"Streaming ASR 2.0 · sentence mode" = "Streaming ASR 2.0 · sentence mode";
-"Kay uses your own Volcengine account. Audio goes straight from this Mac to Volcengine, your key stays in the macOS Keychain, and Volcengine bills you at its standard rates." = "Kay uses your own Volcengine account. Audio goes straight from this Mac to Volcengine, your key stays in the macOS Keychain, and Volcengine bills you at its standard rates.";
+"Workspace URL" = "Workspace URL";
+"Kay uses your own Alibaba Cloud account. Audio goes straight from this Mac to Alibaba Cloud, your key stays in the macOS Keychain, and Alibaba Cloud bills you at its standard rates." = "Kay uses your own Alibaba Cloud account. Audio goes straight from this Mac to Alibaba Cloud, your key stays in the macOS Keychain, and Alibaba Cloud bills you at its standard rates.";
 "API Key" = "API Key";
-"Volcengine console → Doubao Speech → API Key (new console)." = "Volcengine console → Doubao Speech → API Key (new console).";
+"Alibaba Cloud Model Studio → API Key. Use the key and URL for the same workspace." = "Alibaba Cloud Model Studio → API Key. Use the key and URL for the same workspace.";
 "Resource" = "Resource";
 "Hourly" = "Hourly";
 "Concurrent" = "Concurrent";
@@ -82,26 +82,30 @@
 "Coming soon" = "Coming soon";
 "Remove this key from Kay?" = "Remove this key from Kay?";
 "Remove" = "Remove";
-"It stays valid in Volcengine. If it was exposed, revoke it in the console." = "It stays valid in Volcengine. If it was exposed, revoke it in the console.";
+"It stays valid in Alibaba Cloud. If it was exposed, revoke it in the console." = "It stays valid in Alibaba Cloud. If it was exposed, revoke it in the console.";
 "Saved (%@). Paste a new key to replace it." = "Saved (%@). Paste a new key to replace it.";
-"Paste your Volcengine API Key" = "Paste your Volcengine API Key";
+"Paste your Alibaba Cloud API Key" = "Paste your Alibaba Cloud API Key";
 "Not Set" = "Not Set";
 "Saved" = "Saved";
 "Testing…" = "Testing…";
 "Connected" = "Connected";
 "Failed" = "Failed";
 "Connected · %lld ms. Ready to dictate." = "Connected · %lld ms. Ready to dictate.";
-"Add your Volcengine API key." = "Add your Volcengine API key.";
+"Add your Alibaba Cloud API key." = "Add your Alibaba Cloud API key.";
 "Key saved (%@)." = "Key saved (%@).";
 "Connected · %lld ms" = "Connected · %lld ms";
 "The key works, but Kay couldn't save it to the Keychain." = "The key works, but Kay couldn't save it to the Keychain.";
 
 /* Errors */
-"Volcengine rejected this key. Make sure you copied the whole key from the new console." = "Volcengine rejected this key. Make sure you copied the whole key from the new console.";
-"This key isn't enabled for Doubao Streaming ASR 2.0. Enable the service in the console, or switch the resource type." = "This key isn't enabled for Doubao Streaming ASR 2.0. Enable the service in the console, or switch the resource type.";
-"Couldn't reach Volcengine. Check your network or proxy." = "Couldn't reach Volcengine. Check your network or proxy.";
+"Enter the Alibaba Cloud workspace URL from the console." = "Enter the Alibaba Cloud workspace URL from the console.";
+"Couldn't start Qwen ASR. Check your network and workspace URL." = "Couldn't start Qwen ASR. Check your network and workspace URL.";
+"Qwen ASR is busy or your quota is exhausted. Check your Alibaba Cloud account and try again." = "Qwen ASR is busy or your quota is exhausted. Check your Alibaba Cloud account and try again.";
+"Qwen ASR couldn't finish this dictation. Try again or check your Alibaba Cloud account." = "Qwen ASR couldn't finish this dictation. Try again or check your Alibaba Cloud account.";
+"Alibaba Cloud rejected this key. Copy the full API key for this workspace." = "Alibaba Cloud rejected this key. Copy the full API key for this workspace.";
+"This key can't use Qwen ASR in this workspace. Check the key, workspace and service access." = "This key can't use Qwen ASR in this workspace. Check the key, workspace and service access.";
+"Couldn't reach Alibaba Cloud. Check your network and workspace URL." = "Couldn't reach Alibaba Cloud. Check your network and workspace URL.";
 "Unknown error" = "Unknown error";
-"Malformed response from Volcengine." = "Malformed response from Volcengine.";
+"Alibaba Cloud returned an unreadable response." = "Alibaba Cloud returned an unreadable response.";
 "Recognition timed out." = "Recognition timed out.";
 "No microphone input is available." = "No microphone input is available.";
 
@@ -110,7 +114,6 @@
 "Kay can't use the microphone. Allow it in System Settings." = "Kay can't use the microphone. Allow it in System Settings.";
 "The microphone didn't start: %@" = "The microphone didn't start: %@";
 "Didn't catch that." = "Didn't catch that.";
-"Recording" = "Recording";
 "System Default" = "System Default";
 "System Default (%@)" = "System Default (%@)";
 "Not Connected" = "Not Connected";

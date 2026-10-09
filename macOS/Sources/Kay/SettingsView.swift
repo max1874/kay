@@ -175,6 +175,7 @@ private struct PermissionRow: View {
 private struct SpeechSettings: View {
     @ObservedObject private var speech = SpeechService.shared
     @State private var draft = ""
+    @State private var workspaceDraft = ""
     @State private var confirmRemove = false
 
     private var trimmedDraft: String { draft.trimmingCharacters(in: .whitespacesAndNewlines) }
@@ -189,14 +190,14 @@ private struct SpeechSettings: View {
                         .frame(width: 38, height: 38)
                         .background(Color.blue.gradient, in: .rect(cornerRadius: 9))
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Volcengine Doubao").font(.headline)
-                        Text("Streaming ASR 2.0 · sentence mode").font(.callout).foregroundStyle(.secondary)
+                        Text("Alibaba Qwen ASR").font(.headline)
+                        Text("Qwen Audio 3.1 · streaming").font(.callout).foregroundStyle(.secondary)
                     }
                     Spacer()
                     StatusBadge(status: speech.status)
                 }
             } footer: {
-                Text("Kay uses your own Volcengine account. Audio goes straight from this Mac to Volcengine, your key stays in the macOS Keychain, and Volcengine bills you at its standard rates.")
+                Text("Kay uses your own Alibaba Cloud account. Audio goes straight from this Mac to Alibaba Cloud, your key stays in the macOS Keychain, and Alibaba Cloud bills you at its standard rates.")
                     .foregroundStyle(.secondary)
             }
 
@@ -204,11 +205,10 @@ private struct SpeechSettings: View {
                 SecureField(text: $draft, prompt: placeholder) { Text("API Key") }
                     .onSubmit(test)
                     .onChange(of: draft) { speech.clearCandidateError() }
-                Picker("Resource", selection: $speech.resourceId) {
-                    ForEach(SpeechService.resources) { resource in
-                        Text(verbatim: "\(resource.title) · \(resource.id)").tag(resource.id)
-                    }
-                }
+                TextField("Workspace URL", text: $workspaceDraft,
+                          prompt: Text(verbatim: QwenSession.defaultWorkspaceURL))
+                    .onSubmit(test)
+                    .onChange(of: workspaceDraft) { speech.clearCandidateError() }
                 HStack(spacing: 12) {
                     Button(action: test) {
                         if speech.status == .testing {
@@ -228,11 +228,11 @@ private struct SpeechSettings: View {
                 Text("API Key")
             } footer: {
                 HStack(spacing: 14) {
-                    Text("Volcengine console → Doubao Speech → API Key (new console).")
+                    Text("Alibaba Cloud Model Studio → API Key. Use the key and URL for the same workspace.")
                         .foregroundStyle(.secondary)
                     Spacer()
                     Link("Get an API Key ↗", destination: SpeechService.apiKeysURL)
-                    Link("Enable the Service ↗", destination: SpeechService.activateURL)
+                    Link("Alibaba Cloud Console", destination: SpeechService.consoleURL)
                 }
             }
 
@@ -242,18 +242,14 @@ private struct SpeechSettings: View {
                 }
             }
 
-            Section("Other Providers") {
-                LabeledContent("Alibaba Qwen ASR") {
-                    Text("Coming soon")
-                }
-            }
         }
         .formStyle(.grouped)
         .fixedSize(horizontal: false, vertical: true)
+        .onAppear { workspaceDraft = speech.workspaceURL }
         .confirmationDialog("Remove this key from Kay?", isPresented: $confirmRemove) {
             Button("Remove", role: .destructive) { speech.remove() }
         } message: {
-            Text("It stays valid in Volcengine. If it was exposed, revoke it in the console.")
+            Text("It stays valid in Alibaba Cloud. If it was exposed, revoke it in the console.")
         }
     }
 
@@ -261,7 +257,7 @@ private struct SpeechSettings: View {
         if let masked = speech.maskedKey {
             Text("Saved (\(masked)). Paste a new key to replace it.")
         } else {
-            Text("Paste your Volcengine API Key")
+            Text("Paste your Alibaba Cloud API Key")
         }
     }
 
@@ -269,7 +265,7 @@ private struct SpeechSettings: View {
         let key = trimmedDraft
         guard !key.isEmpty || speech.hasKey else { return }
         Task { @MainActor in
-            await speech.test(newKey: key.isEmpty ? nil : key)
+            await speech.test(newKey: key.isEmpty ? nil : key, newWorkspaceURL: workspaceDraft)
             if case .connected = speech.status, speech.candidateError == nil { draft = "" }
         }
     }

@@ -84,7 +84,7 @@ private struct StatusHeader: View {
                             Image(systemName: "checkmark.seal.fill").foregroundStyle(.green)
                             speech.status.summary(maskedKey: speech.maskedKey)
                             Text(verbatim: "·")
-                            Link("Volcengine Console", destination: SpeechService.consoleURL)
+                            Link("Alibaba Cloud Console", destination: SpeechService.consoleURL)
                         }
                         .font(.callout)
                         .foregroundStyle(.secondary)
@@ -381,7 +381,7 @@ private struct EntryCard: View {
 extension SpeechService.Status {
     func summary(maskedKey: String?) -> Text {
         switch self {
-        case .notSet: Text("Add your Volcengine API key.")
+        case .notSet: Text("Add your Alibaba Cloud API key.")
         case .saved: Text("Key saved (\(maskedKey ?? "")).")
         case .testing: Text("Testing…")
         case .connected(let ms): Text("Connected · \(ms) ms")

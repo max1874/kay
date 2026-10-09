@@ -1,10 +1,10 @@
 import Foundation
 import Security
 
-/// The Volcengine API key, as a generic password under the bundle id (same scheme as Lumo).
+/// The Alibaba Cloud API key, as a generic password under the bundle id (same scheme as Lumo).
 enum Keychain {
     private static let service = "com.max1874.kay"
-    private static let account = "volc-api-key"
+    private static let account = "dashscope-api-key"
 
     private static var base: [String: Any] {
         [

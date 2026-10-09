@@ -61,7 +61,7 @@ final class AppModel: ObservableObject {
     private lazy var hud = HUD()
     private let hotkey = HotkeyMonitor()
     private var capture: AudioCapture?
-    private var session: DoubaoSession?
+    private var session: QwenSession?
     /// The audio of the dictation in progress, until its outcome is in history.
     private var pending: PendingDictation?
     private var pressedAt = Date()
@@ -235,7 +235,7 @@ final class AppModel: ObservableObject {
             return
         }
 
-        let session = DoubaoSession(apiKey: apiKey, resourceId: speech.resourceId)
+        let session = QwenSession(apiKey: apiKey, workspaceURL: speech.workspaceURL)
         let capture = AudioCapture()
         let microphone = Microphones.chosen()
         capture.inputDevice = microphone?.id
@@ -362,7 +362,7 @@ final class AppModel: ObservableObject {
             recover(next, apiKey: apiKey)
             return
         }
-        let session = DoubaoSession(apiKey: apiKey, resourceId: speech.resourceId)
+        let session = QwenSession(apiKey: apiKey, workspaceURL: speech.workspaceURL)
         session.start()
         // The same 200 ms packets a live dictation sends, only without waiting between them.
         var offset = 0

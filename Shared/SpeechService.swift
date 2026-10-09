@@ -1,6 +1,6 @@
 import Foundation
 
-/// The user's own Volcengine credentials, and whether they currently work.
+/// The user's own Alibaba Cloud credentials, and whether they currently work.
 ///
 /// One source of truth for "is speech set up": Home's checklist, the Speech Service pane and
 /// dictation failures all read and write the same `status`.
@@ -23,34 +23,16 @@ final class SpeechService: ObservableObject {
         }
     }
 
-    struct Resource: Identifiable {
-        let id: String
-        let title: String
-    }
-
-    /// Doubao Streaming ASR 2.0 is sold two ways; both use the same endpoint.
-    static let resources = [
-        Resource(id: "volc.seedasr.sauc.duration", title: String(localized: "Hourly")),
-        Resource(id: "volc.seedasr.sauc.concurrent", title: String(localized: "Concurrent")),
-    ]
-
-    static let apiKeysURL = URL(string: "https://console.volcengine.com/speech/new/setting/apikeys")!
-    static let activateURL = URL(string: "https://console.volcengine.com/speech/new/setting/activate")!
-    static let consoleURL = URL(string: "https://console.volcengine.com/speech/new/overview")!
-
-    private static let resourceDefaultsKey = "speech.resourceId"
+    static let apiKeysURL = URL(string: "https://bailian.console.aliyun.com/?tab=model#/api-key")!
+    static let consoleURL = URL(string: "https://bailian.console.aliyun.com/")!
+    private static let workspaceDefaultsKey = "speech.qwen.workspaceURL"
 
     @Published private(set) var status: Status
     @Published private(set) var maskedKey: String?
     /// A replacement key that failed its test. Kept apart from `status`, which describes the stored
     /// key: a typo in a new key must not make Kay look broken while the saved one still works.
     @Published private(set) var candidateError: String?
-    @Published var resourceId: String {
-        didSet {
-            UserDefaults.standard.set(resourceId, forKey: Self.resourceDefaultsKey)
-            if apiKey != nil, oldValue != resourceId { status = .saved }
-        }
-    }
+    @Published private(set) var workspaceURL: String
 
     /// Cached so a key press never waits on the Keychain.
     private(set) var apiKey: String?
@@ -59,45 +41,51 @@ final class SpeechService: ObservableObject {
 
     private init() {
         #if os(macOS)
-        if Keychain.get() == nil, let legacy = LegacyConfig.takeApiKey(), Keychain.set(legacy), Keychain.get() == legacy {
-            LegacyConfig.remove()
+        // An explicitly prepared, private one-time setup is imported by the signed app so
+        // its Keychain item belongs to Kay. Never reinterpret the old Volcengine key as Qwen.
+        if Keychain.get() == nil, let setup = QwenSetup.load(),
+           QwenSession.endpoint(setup.workspaceURL) != nil,
+           Keychain.set(setup.apiKey), Keychain.get() == setup.apiKey {
+            UserDefaults.standard.set(setup.workspaceURL, forKey: Self.workspaceDefaultsKey)
+            QwenSetup.remove()
         }
         #endif
         let key = Keychain.get()
         apiKey = key
         maskedKey = key.map(Self.mask)
-        resourceId = UserDefaults.standard.string(forKey: Self.resourceDefaultsKey) ?? Self.resources[0].id
+        workspaceURL = UserDefaults.standard.string(forKey: Self.workspaceDefaultsKey) ?? QwenSession.defaultWorkspaceURL
         status = key == nil ? .notSet : .saved
     }
 
-    /// Checks `newKey` (or the stored key when nil) against Volcengine, and only then stores it.
-    /// The key is written, read back, and compared before anything says "Connected".
+    /// Verify the actual ASR task before atomically adopting a candidate key/workspace.
+    /// A failed replacement leaves the current, working configuration usable.
     @MainActor
-    func test(newKey: String?) async {
+    func test(newKey: String?, newWorkspaceURL: String? = nil) async {
+        guard status != .testing else { return }
         let key = (newKey ?? apiKey ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        let candidateURL = (newWorkspaceURL ?? workspaceURL).trimmingCharacters(in: .whitespacesAndNewlines)
         guard !key.isEmpty else { return }
-        let isReplacement = apiKey != nil && key != apiKey
+        let isReplacement = apiKey != nil && (key != apiKey || candidateURL != workspaceURL)
         let previous = status
         candidateError = nil
         status = .testing
-        switch await Self.verify(key: key, resourceId: resourceId) {
+        switch await Self.verify(key: key, workspaceURL: candidateURL) {
         case .failure(let message):
-            if isReplacement {
-                candidateError = message
-                status = previous
-            } else {
-                status = .failed(message)
-            }
+            if isReplacement { candidateError = message; status = previous }
+            else { status = .failed(message) }
         case .success(let ms):
             if key != apiKey {
                 guard Keychain.set(key), Keychain.get() == key else {
                     let message = String(localized: "The key works, but Kay couldn't save it to the Keychain.")
-                    if isReplacement { candidateError = message; status = previous } else { status = .failed(message) }
+                    if isReplacement { candidateError = message; status = previous }
+                    else { status = .failed(message) }
                     return
                 }
                 apiKey = key
                 maskedKey = Self.mask(key)
             }
+            workspaceURL = candidateURL
+            UserDefaults.standard.set(candidateURL, forKey: Self.workspaceDefaultsKey)
             status = .connected(ms: ms)
         }
     }
@@ -124,21 +112,18 @@ final class SpeechService: ObservableObject {
         case failure(String)
     }
 
-    /// Opens the same WebSocket dictation uses and waits for the handshake, without sending audio.
-    /// Volcengine answers the upgrade itself: 401 for a key it doesn't know, 403 for a key whose
-    /// account hasn't enabled this resource. Checked 2026-09-30 against the live endpoint.
-    static func verify(key: String, resourceId: String) async -> Verification {
+    /// task-started validates key, workspace and model access without sending microphone audio.
+    static func verify(key: String, workspaceURL: String) async -> Verification {
         await withCheckedContinuation { continuation in
-            let task = URLSession.shared.webSocketTask(with: DoubaoSession.request(apiKey: key, resourceId: resourceId))
+            let session = QwenSession(apiKey: key, workspaceURL: workspaceURL)
             let started = Date()
-            task.resume()
-            task.sendPing { error in
-                let status = (task.response as? HTTPURLResponse)?.statusCode
-                task.cancel(with: .normalClosure, reason: nil)
-                if let error {
-                    continuation.resume(returning: .failure(DoubaoError.message(status: status, error: error)))
-                } else {
+            session.start { result in
+                session.cancel()
+                switch result {
+                case .success:
                     continuation.resume(returning: .success(Int(Date().timeIntervalSince(started) * 1000)))
+                case .failure(let error):
+                    continuation.resume(returning: .failure(error.localizedDescription))
                 }
             }
         }

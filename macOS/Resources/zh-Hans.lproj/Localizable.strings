@@ -43,10 +43,10 @@
 "Dictations Today" = "今日听写";
 "Characters" = "累计字数";
 "Audio Sent" = "累计音频";
-"Volcengine Console" = "火山引擎控制台";
+"Alibaba Cloud Console" = "阿里云控制台";
 
 /* Live */
-"Volcengine Doubao" = "火山引擎 · 豆包语音";
+"Qwen Audio 3.1 · streaming" = "千问语音 3.1 · 流式识别";
 "Recognizing…" = "识别中…";
 
 /* Settings */
@@ -65,10 +65,10 @@
 "History" = "历史记录";
 "Show in Finder" = "在访达中显示";
 "Version" = "版本";
-"Streaming ASR 2.0 · sentence mode" = "流式语音识别 2.0 · 一句话模式";
-"Kay uses your own Volcengine account. Audio goes straight from this Mac to Volcengine, your key stays in the macOS Keychain, and Volcengine bills you at its standard rates." = "Kay 使用你自己的火山引擎账号。音频从这台 Mac 直接发送到火山引擎，密钥只保存在 macOS 钥匙串中，费用由火山引擎按标准价格向你收取。";
+"Workspace URL" = "工作空间地址";
+"Kay uses your own Alibaba Cloud account. Audio goes straight from this Mac to Alibaba Cloud, your key stays in the macOS Keychain, and Alibaba Cloud bills you at its standard rates." = "Kay 使用你自己的阿里云账号。音频从这台 Mac 直接发送到阿里云，密钥保存在 macOS 钥匙串中，费用由阿里云按标准价格收取。";
 "API Key" = "API Key";
-"Volcengine console → Doubao Speech → API Key (new console)." = "火山引擎控制台 → 豆包语音 → API Key（新版控制台）。";
+"Alibaba Cloud Model Studio → API Key. Use the key and URL for the same workspace." = "阿里云百炼 → API Key。请使用同一工作空间的密钥和地址。";
 "Resource" = "资源类型";
 "Hourly" = "小时版";
 "Concurrent" = "并发版";
@@ -82,26 +82,30 @@
 "Coming soon" = "即将支持";
 "Remove this key from Kay?" = "从 Kay 移除这个 Key？";
 "Remove" = "移除";
-"It stays valid in Volcengine. If it was exposed, revoke it in the console." = "它在火山引擎中仍然有效。如果已经泄露，请到控制台吊销。";
+"It stays valid in Alibaba Cloud. If it was exposed, revoke it in the console." = "它在阿里云中仍然有效。如果已经泄露，请到控制台吊销。";
 "Saved (%@). Paste a new key to replace it." = "已保存（%@）。粘贴新的 Key 可替换。";
-"Paste your Volcengine API Key" = "粘贴火山引擎 API Key";
+"Paste your Alibaba Cloud API Key" = "粘贴阿里云 API Key";
 "Not Set" = "未设置";
 "Saved" = "已保存";
 "Testing…" = "测试中…";
 "Connected" = "已连接";
 "Failed" = "失败";
 "Connected · %lld ms. Ready to dictate." = "连接成功 · %lld ms，可以开始听写。";
-"Add your Volcengine API key." = "填写你的火山引擎 API Key。";
+"Add your Alibaba Cloud API key." = "填写你的阿里云 API Key。";
 "Key saved (%@)." = "Key 已保存（%@）。";
 "Connected · %lld ms" = "已连接 · %lld ms";
 "The key works, but Kay couldn't save it to the Keychain." = "Key 可用，但未能保存到钥匙串。";
 
 /* Errors */
-"Volcengine rejected this key. Make sure you copied the whole key from the new console." = "火山引擎拒绝了这个 Key，请确认已从新版控制台完整复制。";
-"This key isn't enabled for Doubao Streaming ASR 2.0. Enable the service in the console, or switch the resource type." = "这个 Key 未开通豆包流式语音识别 2.0，请在控制台开通服务，或切换资源类型。";
-"Couldn't reach Volcengine. Check your network or proxy." = "无法连接火山引擎，请检查网络或代理。";
+"Enter the Alibaba Cloud workspace URL from the console." = "请填写阿里云控制台中的工作空间地址。";
+"Couldn't start Qwen ASR. Check your network and workspace URL." = "无法启动千问语音识别，请检查网络和工作空间地址。";
+"Qwen ASR is busy or your quota is exhausted. Check your Alibaba Cloud account and try again." = "千问语音识别繁忙或额度已用尽，请检查阿里云账号后重试。";
+"Qwen ASR couldn't finish this dictation. Try again or check your Alibaba Cloud account." = "千问语音识别未能完成本次听写，请重试或检查阿里云账号。";
+"Alibaba Cloud rejected this key. Copy the full API key for this workspace." = "阿里云拒绝了这个 Key，请完整复制当前工作空间的 API Key。";
+"This key can't use Qwen ASR in this workspace. Check the key, workspace and service access." = "这个 Key 无法使用当前工作空间的千问语音识别，请检查密钥、工作空间和服务权限。";
+"Couldn't reach Alibaba Cloud. Check your network and workspace URL." = "无法连接阿里云，请检查网络和工作空间地址。";
 "Unknown error" = "未知错误";
-"Malformed response from Volcengine." = "火山引擎返回了无法解析的响应。";
+"Alibaba Cloud returned an unreadable response." = "阿里云返回了无法解析的响应。";
 "Recognition timed out." = "识别超时。";
 "No microphone input is available." = "没有可用的麦克风输入。";
 
@@ -110,7 +114,6 @@
 "Kay can't use the microphone. Allow it in System Settings." = "Kay 无法使用麦克风，请在系统设置中允许。";
 "The microphone didn't start: %@" = "麦克风启动失败：%@";
 "Didn't catch that." = "没听清。";
-"Recording" = "录音";
 "System Default" = "系统默认";
 "System Default (%@)" = "系统默认（%@）";
 "Not Connected" = "未连接";

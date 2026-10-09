@@ -4,6 +4,7 @@ struct ContentView: View {
     @ObservedObject private var dictation = DictationController.shared
     @ObservedObject private var speech = SpeechService.shared
     @State private var draft = ""
+    @State private var workspaceDraft = ""
     @State private var copiedID: HistoryEntry.ID?
 
     var body: some View {
@@ -26,15 +27,14 @@ struct ContentView: View {
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
                         .onChange(of: draft) { speech.clearCandidateError() }
-                    Picker("Resource", selection: $speech.resourceId) {
-                        ForEach(SpeechService.resources) { resource in
-                            Text(resource.title).tag(resource.id)
-                        }
-                    }
+                    TextField("Workspace URL", text: $workspaceDraft)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                        .onChange(of: workspaceDraft) { speech.clearCandidateError() }
                     Button {
                         let key = draft.trimmingCharacters(in: .whitespacesAndNewlines)
                         Task {
-                            await speech.test(newKey: key.isEmpty ? nil : key)
+                            await speech.test(newKey: key.isEmpty ? nil : key, newWorkspaceURL: workspaceDraft)
                             if case .connected = speech.status, speech.candidateError == nil { draft = "" }
                         }
                     } label: {
@@ -51,13 +51,13 @@ struct ContentView: View {
                         Label("Connected · \(ms) ms", systemImage: "checkmark.seal.fill").foregroundStyle(.green)
                     }
                 } header: {
-                    Text("Volcengine Doubao")
+                    Text("Alibaba Qwen ASR")
                 } footer: {
                     VStack(alignment: .leading, spacing: 6) {
-                        Text("Kay uses Doubao Streaming ASR 2.0 with your own Volcengine key. Create one in the console and make sure the service is enabled. The key stays in the Keychain; audio goes straight to Volcengine.")
+                        Text("Kay uses Qwen Audio 3.1 with your own Alibaba Cloud key. Use the key and URL for the same workspace. The key stays in the Keychain; audio goes straight to Alibaba Cloud.")
                         HStack(spacing: 16) {
                             Link("Get an API Key ↗", destination: SpeechService.apiKeysURL)
-                            Link("Enable the Service ↗", destination: SpeechService.activateURL)
+                            Link("Alibaba Cloud Console", destination: SpeechService.consoleURL)
                         }
                     }
                 }
@@ -96,6 +96,7 @@ struct ContentView: View {
                 }
             }
             .navigationTitle("Kay")
+            .onAppear { workspaceDraft = speech.workspaceURL }
         }
     }
 
