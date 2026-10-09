@@ -21,4 +21,4 @@ Read this variable from the product, never from a proxy: a `history.json` entry 
 
 - Max uses the installed `/Applications/Kay.app`; `build/Kay.app` is only the release pipeline's input. Do not test by launching the build copy as if it were what Max runs.
 - Do not steal focus, change settings, or interrupt an active dictation while Max is working. If that leaves a core-path change unverifiable, put the conflict first in the report and let Max choose a test window; do not substitute an easier check.
-- Local test and check suites are not run here; the `machine-guard` hook denies them.
+- Local test and check suites are not run here.
