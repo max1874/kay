@@ -14,7 +14,7 @@ Read this variable from the product, never from a proxy: a `history.json` entry 
 
 ## Recorded failure classes
 
-- **HUD animation versus panel resize** (1.3.1 on 2026-09-30, again 1.4.4–1.5.2 through 2026-10-02): a SwiftUI animation in the HUD collided with the floating panel changing size in the same constraint pass, and every dictation crashed for 27 hours while verification looked only at proxies. The fix was structural (fixed-size panel, 1.5.3); the retrospective is `~/.agents/retros/2026-10-02-kay-crash.md`. Read it before changing the HUD, the panel, or anything on the dictation path.
+- **HUD animation versus panel resize** (1.3.1 on 2026-09-30, again 1.4.4–1.5.2 through 2026-10-02): a SwiftUI animation in the HUD collided with the floating panel changing size in the same constraint pass, and every dictation crashed for 27 hours while verification looked only at proxies. The fix was structural (fixed-size panel, 1.5.3); the retrospective is `~/AI/2026/1002-Kay崩溃复盘.md`. Read it before changing the HUD, the panel, or anything on the dictation path.
 - **Quitting while a dictation lands** (2026-10-07): the install script quit Kay 0.9 s after a key release and the text was lost. Since 1.5.4 Kay waits for the dictation to land (up to 60 s) before quitting and the installer waits for the process to exit; this protection runs only on the next install and was unverified when recorded.
 
 ## Working rules
