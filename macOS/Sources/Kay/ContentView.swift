@@ -82,14 +82,17 @@ private struct StatusHeader: View {
                     if model.isReady {
                         HStack(spacing: 6) {
                             Image(systemName: "checkmark.seal.fill").foregroundStyle(.green)
-                            speech.status.summary(maskedKey: speech.maskedKey)
+                            speech.status.summary(maskedKey: speech.maskedKey, provider: speech.provider)
                             Text(verbatim: "·")
-                            Link("Alibaba Cloud Console", destination: SpeechService.consoleURL)
+                            Link(speech.provider.consoleName, destination: speech.provider.consoleURL)
                         }
                         .font(.callout)
                         .foregroundStyle(.secondary)
                     }
-                    MicrophoneMenu()
+                    HStack(spacing: 16) {
+                        MicrophoneMenu()
+                        EngineMenu()
+                    }
                 }
             }
 
@@ -103,7 +106,8 @@ private struct StatusHeader: View {
                               detail: Text("Lets Kay notice the dictation key and paste the text for you."),
                               action: "Open System Settings", perform: model.openAccessibilitySettings)
                     SetupCard(done: speech.status.isUsable, symbol: "key.fill", tint: .purple,
-                              title: "Speech Service", detail: speech.status.summary(maskedKey: speech.maskedKey),
+                              title: "Speech Service",
+                              detail: speech.status.summary(maskedKey: speech.maskedKey, provider: speech.provider),
                               action: "Add API Key") {
                         settingsTab = .speech
                         openSettings()
@@ -172,6 +176,43 @@ private struct MicrophoneMenu: View {
     private func reload() {
         devices = Microphones.all()
         defaultName = Microphones.defaultName()
+    }
+}
+
+/// Which speech service dictation uses, switched on the spot. Lists the services with a key; setting up
+/// another one, or a key, happens in Settings, the same choice shown as the list on top of Speech Service.
+private struct EngineMenu: View {
+    @ObservedObject private var speech = SpeechService.shared
+    @Environment(\.openSettings) private var openSettings
+    @AppStorage(SettingsTab.storageKey) private var settingsTab = SettingsTab.general
+
+    var body: some View {
+        Menu {
+            Picker("Speech Service", selection: Binding(get: { speech.provider }, set: { speech.select($0) })) {
+                ForEach(SpeechProvider.allCases.filter { speech.hasKey($0) || $0 == speech.provider }) { provider in
+                    ProviderLabel(provider: provider).tag(provider)
+                }
+            }
+            .pickerStyle(.inline)
+            .labelsHidden()
+            Divider()
+            Button("Speech Service Settings…") {
+                settingsTab = .speech
+                openSettings()
+            }
+        } label: {
+            Label {
+                Text(verbatim: speech.provider.shortName)
+            } icon: {
+                if let image = ProviderIcon.image(speech.provider, size: 14) { Image(nsImage: image) }
+                else { Image(systemName: "waveform") }
+            }
+        }
+        .menuStyle(.borderlessButton)
+        .fixedSize()
+        .font(.callout)
+        .foregroundStyle(.secondary)
+        .help("The speech service Kay dictates with. Each one uses its own key.")
     }
 }
 
@@ -379,9 +420,9 @@ private struct EntryCard: View {
 // MARK: - Shared
 
 extension SpeechService.Status {
-    func summary(maskedKey: String?) -> Text {
+    func summary(maskedKey: String?, provider: SpeechProvider) -> Text {
         switch self {
-        case .notSet: Text("Add your Alibaba Cloud API key.")
+        case .notSet: Text("Add an API key for \(provider.name).")
         case .saved: Text("Key saved (\(maskedKey ?? "")).")
         case .testing: Text("Testing…")
         case .connected(let ms): Text("Connected · \(ms) ms")

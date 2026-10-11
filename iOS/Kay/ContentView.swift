@@ -56,8 +56,8 @@ struct ContentView: View {
                     VStack(alignment: .leading, spacing: 6) {
                         Text("Kay uses Qwen Audio 3.1 with your own Alibaba Cloud key. Use the key and URL for the same workspace. The key stays in the Keychain; audio goes straight to Alibaba Cloud.")
                         HStack(spacing: 16) {
-                            Link("Get an API Key ↗", destination: SpeechService.apiKeysURL)
-                            Link("Alibaba Cloud Console", destination: SpeechService.consoleURL)
+                            Link("Get an API Key ↗", destination: SpeechProvider.qwen.apiKeysURL)
+                            Link("Alibaba Cloud Console", destination: SpeechProvider.qwen.consoleURL)
                         }
                     }
                 }
