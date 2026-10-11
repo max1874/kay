@@ -262,6 +262,8 @@ private struct SpeechSettings: View {
                     Button("Remove Key…", role: .destructive) { confirmRemove = true }
                 }
             }
+
+            VocabularyEditor()
         }
         .formStyle(.grouped)
         .fixedSize(horizontal: false, vertical: true)
@@ -318,6 +320,59 @@ private struct SpeechSettings: View {
             draft = ""
             // A service set up here, and still the one picked, is the one the user wants to dictate with.
             speech.select(provider)
+        }
+    }
+}
+
+/// The vocabulary file, edited in place. Both services get it from the next dictation; when Kay dictates
+/// with Qwen, saving tests it again, since Qwen checks the hot words when a task starts.
+private struct VocabularyEditor: View {
+    @ObservedObject private var speech = SpeechService.shared
+    @State private var text = ""
+    @State private var saved = ""
+    @State private var failed = false
+
+    private var vocabulary: Vocabulary { Vocabulary(parsing: text) }
+
+    var body: some View {
+        Section {
+            TextEditor(text: $text)
+                .font(.system(.callout, design: .monospaced))
+                .frame(height: 160)
+                .onChange(of: text) { failed = false }
+            HStack(spacing: 12) {
+                if failed {
+                    Label("Couldn't save the vocabulary.", systemImage: "xmark.octagon.fill")
+                        .foregroundStyle(.red)
+                } else {
+                    Text("\(vocabulary.terms.count) terms · \(vocabulary.strongCount) marked !")
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                Button("Show in Finder") {
+                    NSWorkspace.shared.activateFileViewerSelecting([Vocabulary.url])
+                }
+                Button("Save", action: save)
+                    .buttonStyle(.borderedProminent)
+                    .disabled(text == saved)
+            }
+        } header: {
+            Text("Vocabulary")
+        } footer: {
+            Text("Names the speech service should get right, one per line. Start a line with ! for the ones it keeps getting wrong (Qwen pulls up to 50 of them hard); # starts a comment.")
+                .foregroundStyle(.secondary)
+        }
+        .onAppear {
+            text = Vocabulary.text()
+            saved = text
+        }
+    }
+
+    private func save() {
+        guard Vocabulary.save(text) else { failed = true; return }
+        saved = text
+        if speech.provider == .qwen, speech.hasKey {
+            Task { await speech.test(newKey: nil) }
         }
     }
 }

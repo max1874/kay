@@ -45,6 +45,15 @@ Each service keeps its own key in the Keychain; a key is only ever sent to its o
 new one. A service picked before it has a key becomes the one Kay dictates with once its key passes the test.
 Each dictation in History records which service recognized it (`engine`).
 
+### Vocabulary
+
+Names a service keeps getting wrong (Raycast heard as "Request", Cursor as "咳嗽") go in **Settings → Speech
+Service → Vocabulary**, one per line; `#` starts a comment. Start a line with `!` for the ones to pull hard:
+Qwen gives the first 50 of those its strongest hot-word weight and the rest of the list a normal one (2000 at
+most); Doubao gets the whole list as context hot words. The list is `~/Library/Application Support/Kay/vocabulary.txt`
+and may be a symlink (to a file kept in Git, say): Kay writes through it. `tools/eval.py --compare <list>` runs
+eval recordings through both services with and without a list, to see what it fixes and what it pulls in.
+
 ## How it works
 
 - **Hold to talk.** fn by default, Right Option as an alternative. Pressing any other key while holding
@@ -127,7 +136,7 @@ Apple 芯片的 macOS 26）。1.5.0 起自动更新：每天检查一次，后�
 费用由阿里云按输入、输出 Token 收取。
 
 **切换服务**：「设置 → 语音服务 → 听写使用」或主窗口麦克风菜单旁的菜单。每个服务的 Key 各自存在钥匙串里，
-只发给它自己的服务。豆包 Key 在[火山引擎控制台](https://console.volcengine.com/speech/new/setting/apikeys)（新版）创建，
+只发给它自己的服务。总被听错的专名（如 Raycast、Cursor）写进「语音服务 → 词汇表」，一行一个，行首加 `!` 的会被强力纠正。豆包 Key 在[火山引擎控制台](https://console.volcengine.com/speech/new/setting/apikeys)（新版）创建，
 填好后选资源类型（小时版或并发版）再测试并保存。
 
 **快捷键**：默认 fn，可改成右 Option。按住时再按其他键会取消本次录音，所以 fn 和 ⌥ 组合键照常可用。

@@ -5,12 +5,18 @@
 """Kay 的识别评测：把评测录音按 Kay 自己的协议和参数送给每个 provider，算字错率，结果追加到 RESULTS.md。
 
 用法:
-  uv run tools/eval.py                          # 跑 tools/recordings/eval/ 下全部用例
+  uv run tools/eval.py                          # 跑全部用例，不带热词
+  uv run tools/eval.py --hotwords FILE          # 带热词名单跑
+  uv run tools/eval.py --compare FILE           # 每条都不带 / 带名单各跑一遍：认回了哪些名单词、拉进了哪些没说的
   uv run tools/eval.py --only 2026-10-11        # 只跑文件名含这个串的用例
-  uv run tools/eval.py --cases DIR --env FILE   # 用例目录和凭证另指（在 worktree 里跑时）
 
-用例: <name>.wav（16 kHz 单声道，可以直接从 ~/Library/Application Support/Kay/recent/ 拷）加同名 <name>.txt，
-.txt 第一行不以 # 开头的就是参考文本，# 行写来源和难点。录音是本人声音，目录在 .gitignore 里，不进仓库。
+用例和结果在私有仓库 asr-lexicon 的 eval/kay/（默认找 kay 仓库同级的 asr-lexicon，worktree 里也一样；
+--cases 另指）。凭证读 kay 仓库根目录的 .env（--env 另指）。用例: <name>.wav（16 kHz 单声道，从
+~/Library/Application Support/Kay/recent/ 拷）加同名 <name>.txt；.txt 里第一行不以 # 开头的是参考文本，
+没有就只出识别结果、不算 CER。
+
+热词名单的格式和 Kay 读的 vocabulary.txt 一样（Shared/Vocabulary.swift）：一行一个词，# 之后是注释，
+行首 ! 是必拉。千问: ! 的前 50 个权重 50，其余 5，最多 2000 个；豆包: 全部放进 corpus.context 的 hotwords。
 
 和 Kay 一致的地方（改 Kay 的参数时这里一起改）:
   - 千问: qwen-audio-3.1-asr-flash-streaming，WebSocket duplex，pcm 16k，200 ms 一包，按句 ID 收最终句、
@@ -37,6 +43,14 @@ import ab
 ROOT = pathlib.Path(__file__).resolve().parent
 QWEN_MODEL = "qwen-audio-3.1-asr-flash-streaming"
 STEP = ab.RATE * 2 * ab.CHUNK_MS // 1000
+QWEN_MAX_WORDS, QWEN_MAX_STRONG, QWEN_STRONG, QWEN_WEIGHT = 2000, 50, 50, 5
+
+
+def repo_root() -> pathlib.Path:
+    """The main checkout, also from a worktree: where .env and the sibling asr-lexicon are."""
+    common = subprocess.run(["git", "-C", str(ROOT), "rev-parse", "--path-format=absolute", "--git-common-dir"],
+                            capture_output=True, text=True).stdout.strip()
+    return pathlib.Path(common).parent if common else ROOT.parent
 
 
 def load_env(path: pathlib.Path):
@@ -48,11 +62,37 @@ def load_env(path: pathlib.Path):
     return env
 
 
-def reference(txt: pathlib.Path) -> str:
+def load_hotwords(path: pathlib.Path):
+    """[(词, 是否必拉)]，去重保序。"""
+    seen, words = set(), []
+    for line in path.read_text().splitlines():
+        line = line.split("#", 1)[0].strip()
+        strong = line.startswith("!")
+        word = line.lstrip("!").strip()
+        if word and word not in seen:
+            seen.add(word)
+            words.append((word, strong))
+    return words
+
+
+def qwen_vocabulary(hotwords):
+    strong = [w for w, s in hotwords if s][:QWEN_MAX_STRONG]
+    rest = [w for w, _ in hotwords if w not in strong]
+    vocabulary = {w: QWEN_STRONG for w in strong}
+    vocabulary.update({w: QWEN_WEIGHT for w in rest})
+    return dict(list(vocabulary.items())[:QWEN_MAX_WORDS])
+
+
+def reference(txt: pathlib.Path):
     for line in txt.read_text().splitlines():
         if line.strip() and not line.lstrip().startswith("#"):
             return line.strip()
-    raise ValueError(f"{txt.name}: 没有参考文本")
+    return None
+
+
+def mentions(text: str, hotwords):
+    t = normalize(text)
+    return {w for w, _ in hotwords if normalize(w) in t}
 
 
 def normalize(s: str) -> str:
@@ -82,7 +122,7 @@ def join_sentences(parts):
     return text
 
 
-async def qwen_streaming(env, pcm):
+async def qwen_streaming(env, pcm, hotwords):
     import websockets
 
     host = urllib.parse.urlparse(env["DASHSCOPE_BASE_URL"]).netloc
@@ -94,7 +134,9 @@ async def qwen_streaming(env, pcm):
         await ws.send(json.dumps({
             "header": {"action": "run-task", "task_id": task, "streaming": "duplex"},
             "payload": {"task_group": "audio", "task": "asr", "function": "recognition", "model": QWEN_MODEL,
-                        "parameters": {"format": "pcm", "sample_rate": ab.RATE}, "input": {}},
+                        "parameters": {"format": "pcm", "sample_rate": ab.RATE,
+                                       **({"vocabulary": qwen_vocabulary(hotwords)} if hotwords else {})},
+                        "input": {}},
         }))
         while True:
             header = json.loads(await ws.recv())["header"]
@@ -136,66 +178,99 @@ async def qwen_streaming(env, pcm):
         return join_sentences([v[1] for _, v in ordered]), time.perf_counter() - released
 
 
-async def doubao_streaming(env, pcm):
-    text, _cost, latency = await ab.doubao_nostream(env, pcm, [])
+async def doubao_streaming(env, pcm, hotwords):
+    text, _cost, latency = await ab.doubao_nostream(env, pcm, [w for w, _ in hotwords])
     return text, latency
 
 
 ENGINES = {"qwen": qwen_streaming, "doubao": doubao_streaming}
 
 
-async def run_case(env, pcm):
-    results = await asyncio.gather(*(fn(env, pcm) for fn in ENGINES.values()), return_exceptions=True)
-    return dict(zip(ENGINES, results))
+async def run_case(env, pcm, lists):
+    """{(引擎, 名单名): 结果}，全部并发。"""
+    jobs = {(engine, name): fn(env, pcm, words) for engine, fn in ENGINES.items() for name, words in lists.items()}
+    results = await asyncio.gather(*jobs.values(), return_exceptions=True)
+    return dict(zip(jobs, results))
 
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--cases", default=str(ROOT / "recordings" / "eval"))
-    ap.add_argument("--env", default=str(ROOT.parent / ".env"))
+    ap.add_argument("--cases", default="")
+    ap.add_argument("--env", default="")
     ap.add_argument("--only", default="")
+    ap.add_argument("--hotwords", default="", help="带这份热词名单跑")
+    ap.add_argument("--compare", default="", help="不带 / 带这份名单各跑一遍")
     ap.add_argument("--note", default="", help="这次跑的说明，写进 RESULTS.md")
     args = ap.parse_args()
 
-    cases_dir = pathlib.Path(args.cases)
-    env = load_env(pathlib.Path(args.env))
-    cases = sorted(p for p in cases_dir.glob("*.wav") if args.only in p.stem and p.with_suffix(".txt").exists())
+    root = repo_root()
+    cases_dir = pathlib.Path(args.cases or root.parent / "asr-lexicon" / "eval" / "kay")
+    env = load_env(pathlib.Path(args.env or root / ".env"))
+    list_file = args.compare or args.hotwords
+    hotwords = load_hotwords(pathlib.Path(list_file)) if list_file else []
+    lists = {"无": [], "名单": hotwords} if args.compare else {("名单" if hotwords else "无"): hotwords}
+    cases = sorted(p for p in cases_dir.glob("*.wav") if args.only in p.stem)
     if not cases:
-        sys.exit(f"{cases_dir} 里没有带 .txt 参考文本的 .wav 用例")
+        sys.exit(f"{cases_dir} 里没有 .wav 用例")
     commit = subprocess.run(["git", "-C", str(ROOT), "rev-parse", "--short", "HEAD"],
                             capture_output=True, text=True).stdout.strip() or "?"
 
-    rows = []
-    totals = {name: [] for name in ENGINES}
+    rows, totals, gained, pulled = [], {}, [], []
     for wav in cases:
         pcm = ab.read_pcm(wav)
-        ref = reference(wav.with_suffix(".txt"))
-        print(f"\n{wav.stem}  {len(pcm) / (ab.RATE * 2):.1f}s\n  参考  {ref}")
-        for name, r in asyncio.run(run_case(env, pcm)).items():
+        txt = wav.with_suffix(".txt")
+        ref = reference(txt) if txt.exists() else None
+        print(f"\n{wav.stem}  {len(pcm) / (ab.RATE * 2):.1f}s" + (f"\n  参考  {ref}" if ref else "  （无参考）"))
+        results = asyncio.run(run_case(env, pcm, lists))
+        for (engine, name), r in results.items():
             if isinstance(r, Exception):
-                print(f"  {name:6}  ✗ {r}")
-                rows.append((wav.stem, name, "—", "—", f"✗ {r}"))
+                print(f"  {engine:6} {name}  ✗ {r}")
+                rows.append((wav.stem, engine, name, "—", "—", f"✗ {r}", ""))
                 continue
             text, latency = r
-            score = cer(ref, text)
-            totals[name].append(score)
-            print(f"  {name:6}  CER {score:5.1%}  {latency * 1000:4.0f} ms  {text}")
-            rows.append((wav.stem, name, f"{score:.1%}", f"{latency * 1000:.0f}", text))
+            score = cer(ref, text) if ref else None
+            if score is not None:
+                totals.setdefault((engine, name), []).append(score)
+            note = ""
+            if args.compare and name == "名单" and not isinstance(results[(engine, "无")], Exception):
+                before = mentions(results[(engine, "无")][0], hotwords)
+                after = mentions(text, hotwords)
+                said = mentions(ref, hotwords) if ref else None
+                new = after - before
+                if said is None:
+                    note = f"新出现：{'、'.join(sorted(new))}" if new else ""
+                else:
+                    got, bad = new & said, new - said
+                    gained += [(wav.stem, engine, w) for w in got]
+                    pulled += [(wav.stem, engine, w) for w in bad]
+                    note = "；".join(x for x in (f"认回：{'、'.join(sorted(got))}" if got else "",
+                                                f"拉偏：{'、'.join(sorted(bad))}" if bad else "") if x)
+                if new and said is None:
+                    pulled += [(wav.stem, engine, f"{w}（无参考，待核）") for w in new]
+            shown = f"CER {score:5.1%}  " if score is not None else ""
+            print(f"  {engine:6} {name}  {shown}{latency * 1000:4.0f} ms  {text}" + (f"   ← {note}" if note else ""))
+            rows.append((wav.stem, engine, name, f"{score:.1%}" if score is not None else "—",
+                         f"{latency * 1000:.0f}", text, note))
 
-    results = cases_dir / "RESULTS.md"
-    new = not results.exists()
-    with open(results, "a") as f:
-        if new:
-            f.write("# Kay 识别评测\n\n由 `tools/eval.py` 追加，最新的在最下面。CER = 字错率（去标点空白后按字符），"
-                    "延迟 = 松手到最终结果。参考文本在各用例的 .txt 里。\n")
+    results_md = cases_dir / "RESULTS.md"
+    with open(results_md, "a") as f:
         f.write(f"\n## {dt.datetime.now():%Y-%m-%d %H:%M} · eval.py @ {commit}\n\n")
         if args.note:
             f.write(args.note + "\n\n")
-        avg = " · ".join(f"{n} {sum(v) / len(v):.1%}" for n, v in totals.items() if v)
-        f.write(f"{len(cases)} 个用例，平均 CER：{avg}\n\n| 用例 | 引擎 | CER | 延迟 ms | 结果 |\n|---|---|---|---|---|\n")
-        for case, name, score, ms, text in rows:
-            f.write(f"| {case} | {name} | {score} | {ms} | {text.replace('|', '｜')} |\n")
-    print(f"\n已追加到 {results}")
+        if hotwords:
+            mode = "对照（不带 / 带）" if args.compare else "带"
+            f.write(f"热词：{pathlib.Path(list_file).name}，{len(hotwords)} 个（必拉 {sum(s for _, s in hotwords)}），{mode}\n\n")
+        else:
+            f.write("热词：无\n\n")
+        avg = " · ".join(f"{e}/{n} {sum(v) / len(v):.1%}（{len(v)} 条）" for (e, n), v in totals.items())
+        f.write(f"{len(cases)} 个用例" + (f"，有参考的平均 CER：{avg}" if avg else "") + "\n\n")
+        if args.compare:
+            f.write(f"认回 {len(gained)} 处，拉偏或待核 {len(pulled)} 处" +
+                    ("：" + "；".join(f"{c} {e} {w}" for c, e, w in pulled) if pulled else "") + "\n\n")
+        f.write("| 用例 | 引擎 | 热词 | CER | 延迟 ms | 结果 | 变化 |\n|---|---|---|---|---|---|---|\n")
+        for case, engine, name, score, ms, text, note in rows:
+            f.write(f"| {case} | {engine} | {name} | {score} | {ms} | {text.replace('|', '｜')} | {note} |\n")
+    print(f"\n认回 {len(gained)} 处，拉偏或待核 {len(pulled)} 处\n已追加到 {results_md}")
 
 
 if __name__ == "__main__":
