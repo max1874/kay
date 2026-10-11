@@ -64,8 +64,6 @@ final class QwenSession {
 
     private let apiKey: String
     private let workspaceURL: String
-    /// Hot words and their weights (`Vocabulary.qwen`); none when empty.
-    private let vocabulary: [String: Int]
     private let taskID = UUID().uuidString
     private let queue = DispatchQueue(label: "kay.qwen")
     private var task: URLSessionWebSocketTask?
@@ -82,10 +80,9 @@ final class QwenSession {
 
     var provider: SpeechProvider { .qwen }
 
-    init(apiKey: String, workspaceURL: String, vocabulary: [String: Int] = [:]) {
+    init(apiKey: String, workspaceURL: String) {
         self.apiKey = apiKey
         self.workspaceURL = workspaceURL
-        self.vocabulary = vocabulary
     }
 
     func start() { start(onReady: nil) }
@@ -103,8 +100,7 @@ final class QwenSession {
             let task = URLSession.shared.webSocketTask(with: request)
             self.task = task
             task.resume()
-            var parameters: [String: Any] = ["format": "pcm", "sample_rate": 16000]
-            if !self.vocabulary.isEmpty { parameters["vocabulary"] = self.vocabulary }
+            let parameters: [String: Any] = ["format": "pcm", "sample_rate": 16000]
             self.enqueueJSON([
                 "header": ["action": "run-task", "task_id": self.taskID, "streaming": "duplex"],
                 "payload": ["task_group": "audio", "task": "asr", "function": "recognition",

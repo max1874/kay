@@ -45,15 +45,14 @@ Each service keeps its own key in the Keychain; a key is only ever sent to its o
 new one. A service picked before it has a key becomes the one Kay dictates with once its key passes the test.
 Each dictation in History records which service recognized it (`engine`).
 
-### Vocabulary
+### Eval
 
-Names a service keeps getting wrong (Raycast heard as "Request", Cursor as "咳嗽") go in **Settings → Speech
-Service → Vocabulary**, one per line; `#` starts a comment. Start a line with `!` for the ones to pull hard:
-Qwen gives the first 50 of those its strongest hot-word weight and the rest of the list a normal one (2000 at
-most); Doubao gets the whole list as context hot words. The list is `~/Library/Application Support/Kay/vocabulary.txt`
-and may be a symlink (to a file kept in Git, say): Kay writes through it. `tools/eval.py --compare <list>` runs
-eval recordings through both services with and without a list, to see what it fixes and what it pulls in. `tools/label.py` serves
-a local page for writing each recording's reference text while listening to it.
+`tools/eval.py` sends eval recordings (kept privately, not in this repository) through each service the way Kay
+does and reports the character error rate against a reference; `tools/label.py` serves a local page for writing
+each recording's reference while listening to it. On 22 of Max's recordings (2026-10-11, three runs each) Doubao
+averaged 5.6% and Qwen 14.3%. Kay sends no hot words: a list tried in 1.7.1 recovered a few names but pulled
+unrelated speech towards its terms, and was removed in 1.8.0. Each dictation in History also records the
+microphone it came from (`microphone`).
 
 ## How it works
 

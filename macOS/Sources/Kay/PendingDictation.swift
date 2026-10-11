@@ -11,7 +11,7 @@ import Foundation
 ///
 /// Once the outcome is in history, the audio of the last 20 dictations is kept as `recent/<entry id>.wav`
 /// (16 kHz mono, on this Mac only): a misrecognition can then be played back and sent again — to the speech service
-/// with hotwords, or to another engine with tools/ab.py — instead of guessed at. Deleting an entry or
+/// again, or to another engine with tools/ab.py — instead of guessed at. Deleting an entry or
 /// clearing history deletes its audio.
 final class PendingDictation {
     private static let prefix = "pending-"

@@ -69,6 +69,8 @@ final class AppModel: ObservableObject {
     /// The audio of the dictation in progress, until its outcome is in history.
     private var pending: PendingDictation?
     private var pressedAt = Date()
+    /// The microphone the dictation in progress records from, for its history entry.
+    private var recordingFrom: String?
     private var poll: Timer?
     private var activation: NSObjectProtocol?
     private var speechChanges: AnyCancellable?
@@ -277,6 +279,7 @@ final class AppModel: ObservableObject {
                                     ? Self.bluetoothMicrophoneTimeout : Self.microphoneTimeout)
                 log.notice("recording from \(microphone.name), started in \(Int(Date().timeIntervalSince(t) * 1000)) ms")
                 started = capture
+                recordingFrom = microphone.name
                 break
             } catch {
                 failure = error
@@ -318,14 +321,17 @@ final class AppModel: ObservableObject {
         hud.recognize()
         let releasedAt = Date()
         let engine = session.provider
+        let microphone = recordingFrom
         session.finish(lastChunk: rest, timeout: 10) { [weak self] result in
             DispatchQueue.main.async {
-                self?.deliver(result, engine: engine, audioSeconds: seconds, latency: Date().timeIntervalSince(releasedAt))
+                self?.deliver(result, engine: engine, microphone: microphone, audioSeconds: seconds,
+                              latency: Date().timeIntervalSince(releasedAt))
             }
         }
     }
 
-    private func deliver(_ result: Result<String, Error>, engine: SpeechProvider, audioSeconds: Double, latency: TimeInterval) {
+    private func deliver(_ result: Result<String, Error>, engine: SpeechProvider, microphone: String?, audioSeconds: Double,
+                         latency: TimeInterval) {
         session = nil
         state = .idle
         // Only after the outcome is recorded below: a crash before that leaves the audio to recover.
@@ -345,7 +351,7 @@ final class AppModel: ObservableObject {
                 return
             }
             let entry = HistoryEntry(date: Date(), text: text, audioSeconds: audioSeconds, latencyMs: ms,
-                                     engine: engine.rawValue)
+                                     engine: engine.rawValue, microphone: microphone)
             record(entry)
             recorded = entry.id
             if AXIsProcessTrusted() {
@@ -363,7 +369,7 @@ final class AppModel: ObservableObject {
                 speech.markFailed(message, provider: engine)
             }
             let entry = HistoryEntry(date: Date(), text: "", audioSeconds: audioSeconds, latencyMs: nil, error: message,
-                                     engine: engine.rawValue)
+                                     engine: engine.rawValue, microphone: microphone)
             record(entry)
             recorded = entry.id
             hud.flash(message, symbol: "exclamationmark.triangle.fill", seconds: 4)

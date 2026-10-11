@@ -74,11 +74,6 @@
 "Version" = "版本";
 "Workspace URL" = "工作空间地址";
 "Dictate With" = "听写使用";
-"Vocabulary" = "词汇表";
-"Names the speech service should get right, one per line. Start a line with ! for the ones it keeps getting wrong (Qwen pulls up to 50 of them hard); # starts a comment." = "希望语音服务认对的词，一行一个。总是听错的在行首加 !（千问对其中前 50 个会强力纠正）；# 之后是注释。";
-"%lld terms · %lld marked !" = "%lld 个词 · %lld 个加了 !";
-"Couldn't save the vocabulary." = "词汇表没能保存。";
-"Save" = "保存";
 "Kay keeps dictating with %@ until this key passes the test." = "这个 Key 测试通过前，Kay 继续用%@听写。";
 "Kay uses your own account with each service. Audio goes straight from this Mac to the one you choose, keys stay in the macOS Keychain, and each service bills you at its standard rates. You can also switch from the menu under the status line in Kay's window." = "Kay 在每个服务上使用你自己的账号。音频从这台 Mac 直接发送到你选的服务，密钥保存在 macOS 钥匙串中，费用由各服务按标准价格收取。也可以在 Kay 主窗口状态栏下方的菜单里切换。";
 "API Key" = "API Key";

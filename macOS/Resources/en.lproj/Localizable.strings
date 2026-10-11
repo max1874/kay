@@ -74,11 +74,6 @@
 "Version" = "Version";
 "Workspace URL" = "Workspace URL";
 "Dictate With" = "Dictate With";
-"Vocabulary" = "Vocabulary";
-"Names the speech service should get right, one per line. Start a line with ! for the ones it keeps getting wrong (Qwen pulls up to 50 of them hard); # starts a comment." = "Names the speech service should get right, one per line. Start a line with ! for the ones it keeps getting wrong (Qwen pulls up to 50 of them hard); # starts a comment.";
-"%lld terms · %lld marked !" = "%lld terms · %lld marked !";
-"Couldn't save the vocabulary." = "Couldn't save the vocabulary.";
-"Save" = "Save";
 "Kay keeps dictating with %@ until this key passes the test." = "Kay keeps dictating with %@ until this key passes the test.";
 "Kay uses your own account with each service. Audio goes straight from this Mac to the one you choose, keys stay in the macOS Keychain, and each service bills you at its standard rates. You can also switch from the menu under the status line in Kay's window." = "Kay uses your own account with each service. Audio goes straight from this Mac to the one you choose, keys stay in the macOS Keychain, and each service bills you at its standard rates. You can also switch from the menu under the status line in Kay's window.";
 "API Key" = "API Key";
