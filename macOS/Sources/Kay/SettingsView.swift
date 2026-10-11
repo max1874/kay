@@ -30,6 +30,7 @@ private struct GeneralSettings: View {
     @ObservedObject private var model = AppModel.shared
     @AppStorage(AppModel.menuBarIconKey) private var showMenuBarIcon = true
     @AppStorage(AppModel.dockIconKey) private var showDockIcon = true
+    @AppStorage(AppModel.clipboardHistoryKey) private var showInClipboardHistory = true
     @AppStorage(Microphones.storageKey) private var microphoneUID = ""
     @State private var microphones: [Microphones.Device] = []
     @State private var defaultMicrophone: String?
@@ -92,6 +93,15 @@ private struct GeneralSettings: View {
             .onAppear(perform: reloadMicrophones)
             .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
                 reloadMicrophones()
+            }
+
+            Section {
+                Toggle("Show in Clipboard History", isOn: $showInClipboardHistory)
+            } header: {
+                Text("Pasting")
+            } footer: {
+                Text("Kay pastes through the clipboard and then puts back what was there. When this is off, clipboard history apps such as Raycast leave dictations out.")
+                    .foregroundStyle(.secondary)
             }
 
             Section("Permissions") {
