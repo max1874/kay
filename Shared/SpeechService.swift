@@ -190,12 +190,13 @@ final class SpeechService: ObservableObject {
         UserDefaults.standard.set(provider.rawValue, forKey: Self.providerDefaultsKey)
     }
 
-    /// A recognition task for the chosen provider, or nil when it has no key.
+    /// A recognition task for the chosen provider, with the vocabulary, or nil when it has no key.
     func makeSession() -> SpeechSession? {
         guard let key = apiKey else { return nil }
+        let vocabulary = Vocabulary.current()
         switch provider {
-        case .qwen: return QwenSession(apiKey: key, workspaceURL: setting(of: .qwen))
-        case .doubao: return DoubaoSession(apiKey: key, resourceId: setting(of: .doubao))
+        case .qwen: return QwenSession(apiKey: key, workspaceURL: setting(of: .qwen), vocabulary: vocabulary.qwen)
+        case .doubao: return DoubaoSession(apiKey: key, resourceId: setting(of: .doubao), hotwords: vocabulary.doubao)
         }
     }
 
@@ -216,7 +217,7 @@ final class SpeechService: ObservableObject {
         statuses[provider] = .testing
         let verification: Verification
         switch provider {
-        case .qwen: verification = await Self.verifyQwen(key: key, workspaceURL: candidate)
+        case .qwen: verification = await Self.verifyQwen(key: key, workspaceURL: candidate, vocabulary: Vocabulary.current().qwen)
         case .doubao: verification = await Self.verifyDoubao(key: key, resourceId: candidate)
         }
         // Removed while the test ran: the removal wins, whatever the test found.
@@ -277,10 +278,11 @@ final class SpeechService: ObservableObject {
         case failure(String)
     }
 
-    /// task-started validates key, workspace and model access without sending microphone audio.
-    static func verifyQwen(key: String, workspaceURL: String) async -> Verification {
+    /// task-started validates key, workspace, model access and the vocabulary dictation will send,
+    /// without sending microphone audio.
+    static func verifyQwen(key: String, workspaceURL: String, vocabulary: [String: Int]) async -> Verification {
         await withCheckedContinuation { continuation in
-            let session = QwenSession(apiKey: key, workspaceURL: workspaceURL)
+            let session = QwenSession(apiKey: key, workspaceURL: workspaceURL, vocabulary: vocabulary)
             let started = Date()
             session.start { result in
                 session.cancel()
