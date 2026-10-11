@@ -15,7 +15,7 @@
 ~/Library/Application Support/Kay/recent/ 拷）加同名 <name>.txt；.txt 里第一行不以 # 开头的是参考文本，
 没有就只出识别结果、不算 CER。
 
-热词名单的格式和 Kay 读的 vocabulary.txt 一样（Shared/Vocabulary.swift）：一行一个词，# 之后是注释，
+热词名单（只用于实验，Kay 1.8.0 起不带热词）：一行一个词，# 之后是注释，
 行首 ! 是必拉。千问: ! 的前 50 个权重 50，其余 5，最多 2000 个；豆包: 全部放进 corpus.context 的 hotwords。
 
 和 Kay 一致的地方（改 Kay 的参数时这里一起改）:

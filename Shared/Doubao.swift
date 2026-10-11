@@ -73,14 +73,9 @@ enum DoubaoFrame {
 /// 一次按住说话对应一个会话：按下时建连并边录边推流，松开时发负包并等待最终结果。
 final class DoubaoSession {
     private static let url = URL(string: "wss://openspeech.bytedance.com/api/v3/sauc/bigmodel_nostream")!
-    /// The first frame. Hot words go in as context (`corpus.context`, a JSON string), as tools/ab.py sends them.
-    static func payload(hotwords: [String]) -> Data {
-        var request: [String: Any] = ["model_name": "bigmodel", "enable_itn": true, "enable_punc": true, "enable_ddc": true]
-        if !hotwords.isEmpty,
-           let context = try? JSONSerialization.data(withJSONObject: ["hotwords": hotwords.map { ["word": $0] }]),
-           let json = String(data: context, encoding: .utf8) {
-            request["corpus"] = ["context": json]
-        }
+    /// The first frame.
+    static func payload() -> Data {
+        let request: [String: Any] = ["model_name": "bigmodel", "enable_itn": true, "enable_punc": true, "enable_ddc": true]
         return (try? JSONSerialization.data(withJSONObject: [
             "user": ["uid": "kay"],
             "audio": ["format": "pcm", "codec": "raw", "rate": 16000, "bits": 16, "channel": 1],
@@ -110,7 +105,6 @@ final class DoubaoSession {
 
     private let apiKey: String
     private let resourceId: String
-    private let hotwords: [String]
     private let queue = DispatchQueue(label: "kay.doubao")
     private var task: URLSessionWebSocketTask?
     /// Audio from a microphone that started before `start()`; sent right after the request frame.
@@ -122,10 +116,9 @@ final class DoubaoSession {
 
     var provider: SpeechProvider { .doubao }
 
-    init(apiKey: String, resourceId: String, hotwords: [String] = []) {
+    init(apiKey: String, resourceId: String) {
         self.apiKey = apiKey
         self.resourceId = resourceId
-        self.hotwords = hotwords
     }
 
     func start() {
@@ -135,7 +128,7 @@ final class DoubaoSession {
             self.task = task
             task.resume()
             // 握手完成前的发送会排队，按顺序发出
-            self.send(DoubaoFrame.fullClientRequest(Self.payload(hotwords: self.hotwords)))
+            self.send(DoubaoFrame.fullClientRequest(Self.payload()))
             for pcm in self.buffered { self.send(DoubaoFrame.audio(pcm, last: false)) }
             self.buffered.removeAll()
             self.receive()
