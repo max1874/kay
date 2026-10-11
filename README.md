@@ -52,7 +52,8 @@ Service → Vocabulary**, one per line; `#` starts a comment. Start a line with 
 Qwen gives the first 50 of those its strongest hot-word weight and the rest of the list a normal one (2000 at
 most); Doubao gets the whole list as context hot words. The list is `~/Library/Application Support/Kay/vocabulary.txt`
 and may be a symlink (to a file kept in Git, say): Kay writes through it. `tools/eval.py --compare <list>` runs
-eval recordings through both services with and without a list, to see what it fixes and what it pulls in.
+eval recordings through both services with and without a list, to see what it fixes and what it pulls in. `tools/label.py` serves
+a local page for writing each recording's reference text while listening to it.
 
 ## How it works
 
