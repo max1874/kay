@@ -172,101 +172,169 @@ private struct PermissionRow: View {
 
 // MARK: - Speech Service
 
+/// Which service Kay dictates with, picked from a menu so the pane stays the same size however many there
+/// are (Max, 2026-10-11: "what if there are 20"). Services with a key come first; picking one switches on
+/// the spot, after a test if it hasn't passed one since launch. Picking one without a key shows its key form,
+/// and it becomes the one dictation uses once its key passes the test; until then dictation stays where it
+/// was, and the pane says so.
 private struct SpeechSettings: View {
     @ObservedObject private var speech = SpeechService.shared
+    /// The service whose key form is shown.
+    @State private var shown = SpeechService.shared.provider
     @State private var draft = ""
-    @State private var workspaceDraft = ""
+    @State private var settingDraft = ""
     @State private var confirmRemove = false
 
     private var trimmedDraft: String { draft.trimmingCharacters(in: .whitespacesAndNewlines) }
+    private var status: SpeechService.Status { speech.status(of: shown) }
+    private var hasKey: Bool { speech.hasKey(shown) }
+    private var changed: Bool {
+        !trimmedDraft.isEmpty || settingDraft.trimmingCharacters(in: .whitespacesAndNewlines) != speech.setting(of: shown)
+    }
 
     var body: some View {
         Form {
             Section {
-                HStack(spacing: 12) {
-                    Image(systemName: "waveform.badge.mic")
-                        .font(.system(size: 18, weight: .semibold))
-                        .foregroundStyle(.white)
-                        .frame(width: 38, height: 38)
-                        .background(Color.blue.gradient, in: .rect(cornerRadius: 9))
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Alibaba Qwen ASR").font(.headline)
-                        Text("Qwen Audio 3.1 · streaming").font(.callout).foregroundStyle(.secondary)
-                    }
-                    Spacer()
-                    StatusBadge(status: speech.status)
+                Picker("Dictate With", selection: Binding(get: { shown }, set: { choose($0) })) {
+                    let ready = SpeechProvider.allCases.filter { speech.hasKey($0) }
+                    let notSet = SpeechProvider.allCases.filter { !speech.hasKey($0) }
+                    ForEach(ready) { ProviderLabel(provider: $0).tag($0) }
+                    if !ready.isEmpty && !notSet.isEmpty { Divider() }
+                    ForEach(notSet) { ProviderLabel(provider: $0, notSet: true).tag($0) }
+                }
+                ProviderSummary(provider: shown, status: status)
+                if shown != speech.provider {
+                    Label("Kay keeps dictating with \(speech.provider.name) until this key passes the test.",
+                          systemImage: "info.circle")
+                        .foregroundStyle(.secondary)
                 }
             } footer: {
-                Text("Kay uses your own Alibaba Cloud account. Audio goes straight from this Mac to Alibaba Cloud, your key stays in the macOS Keychain, and Alibaba Cloud bills you at its standard rates.")
+                Text("Kay uses your own account with each service. Audio goes straight from this Mac to the one you choose, keys stay in the macOS Keychain, and each service bills you at its standard rates. You can also switch from the menu under the status line in Kay's window.")
                     .foregroundStyle(.secondary)
             }
 
             Section {
-                SecureField(text: $draft, prompt: placeholder) { Text("API Key") }
+                SecureField(text: $draft, prompt: keyPrompt) { Text("API Key") }
                     .onSubmit(test)
-                    .onChange(of: draft) { speech.clearCandidateError() }
-                TextField("Workspace URL", text: $workspaceDraft,
-                          prompt: Text(verbatim: QwenSession.defaultWorkspaceURL))
-                    .onSubmit(test)
-                    .onChange(of: workspaceDraft) { speech.clearCandidateError() }
+                    .onChange(of: draft) { speech.clearCandidateError(of: shown) }
+                switch shown {
+                case .qwen:
+                    TextField("Workspace URL", text: $settingDraft,
+                              prompt: Text(verbatim: QwenSession.defaultWorkspaceURL))
+                        .onSubmit(test)
+                        .onChange(of: settingDraft) { speech.clearCandidateError(of: shown) }
+                case .doubao:
+                    Picker("Resource", selection: $settingDraft) {
+                        ForEach(DoubaoSession.resources) { resource in
+                            Text(verbatim: "\(resource.title) · \(resource.id)").tag(resource.id)
+                        }
+                    }
+                    .onChange(of: settingDraft) { speech.clearCandidateError(of: shown) }
+                }
                 HStack(spacing: 12) {
                     Button(action: test) {
-                        if speech.status == .testing {
+                        if status == .testing {
                             ProgressView().controlSize(.small)
-                        } else if trimmedDraft.isEmpty && speech.hasKey {
+                        } else if hasKey && !changed {
                             Text("Test Again")
                         } else {
                             Text("Test & Save")
                         }
                     }
                     .buttonStyle(.borderedProminent)
-                    .disabled(speech.status == .testing || (trimmedDraft.isEmpty && !speech.hasKey))
-                    StatusMessage(status: speech.status, candidateError: speech.candidateError)
+                    .disabled(status == .testing || (trimmedDraft.isEmpty && !hasKey))
+                    StatusMessage(status: status, candidateError: speech.candidateError(of: shown))
                     Spacer(minLength: 0)
                 }
             } header: {
                 Text("API Key")
             } footer: {
                 HStack(spacing: 14) {
-                    Text("Alibaba Cloud Model Studio → API Key. Use the key and URL for the same workspace.")
-                        .foregroundStyle(.secondary)
+                    Text(hint).foregroundStyle(.secondary)
                     Spacer()
-                    Link("Get an API Key ↗", destination: SpeechService.apiKeysURL)
-                    Link("Alibaba Cloud Console", destination: SpeechService.consoleURL)
+                    Link("Get an API Key ↗", destination: shown.apiKeysURL)
+                    Link(shown.consoleName, destination: shown.consoleURL)
                 }
             }
 
-            if speech.hasKey {
+            if hasKey {
                 Section {
                     Button("Remove Key…", role: .destructive) { confirmRemove = true }
                 }
             }
-
         }
         .formStyle(.grouped)
         .fixedSize(horizontal: false, vertical: true)
-        .onAppear { workspaceDraft = speech.workspaceURL }
+        .onAppear { show(speech.provider) }
+        .onChange(of: speech.provider) { show(speech.provider) }
         .confirmationDialog("Remove this key from Kay?", isPresented: $confirmRemove) {
-            Button("Remove", role: .destructive) { speech.remove() }
+            Button("Remove", role: .destructive) { speech.remove(shown) }
         } message: {
-            Text("It stays valid in Alibaba Cloud. If it was exposed, revoke it in the console.")
+            switch shown {
+            case .qwen: Text("It stays valid in Alibaba Cloud. If it was exposed, revoke it in the console.")
+            case .doubao: Text("It stays valid in Volcengine. If it was exposed, revoke it in the console.")
+            }
         }
     }
 
-    private var placeholder: Text {
-        if let masked = speech.maskedKey {
+    private var keyPrompt: Text {
+        if let masked = speech.maskedKey(of: shown) {
             Text("Saved (\(masked)). Paste a new key to replace it.")
         } else {
-            Text("Paste your Alibaba Cloud API Key")
+            switch shown {
+            case .qwen: Text("Paste your Alibaba Cloud API Key")
+            case .doubao: Text("Paste your Volcengine API Key")
+            }
         }
+    }
+
+    private var hint: LocalizedStringKey {
+        switch shown {
+        case .qwen: "Alibaba Cloud Model Studio → API Key. Use the key and URL for the same workspace."
+        case .doubao: "Volcengine console → Doubao Speech → API Key (new console)."
+        }
+    }
+
+    private func choose(_ provider: SpeechProvider) {
+        show(provider)
+        speech.select(provider)
+    }
+
+    private func show(_ provider: SpeechProvider) {
+        guard provider != shown || settingDraft.isEmpty else { return }
+        shown = provider
+        draft = ""
+        settingDraft = speech.setting(of: provider)
     }
 
     private func test() {
+        let provider = shown
         let key = trimmedDraft
-        guard !key.isEmpty || speech.hasKey else { return }
+        guard !key.isEmpty || speech.hasKey(provider) else { return }
         Task { @MainActor in
-            await speech.test(newKey: key.isEmpty ? nil : key, newWorkspaceURL: workspaceDraft)
-            if case .connected = speech.status, speech.candidateError == nil { draft = "" }
+            await speech.test(provider, newKey: key.isEmpty ? nil : key, newSetting: settingDraft)
+            guard case .connected = speech.status(of: provider), speech.candidateError(of: provider) == nil,
+                  shown == provider else { return }
+            draft = ""
+            // A service set up here, and still the one picked, is the one the user wants to dictate with.
+            speech.select(provider)
+        }
+    }
+}
+
+private struct ProviderSummary: View {
+    let provider: SpeechProvider
+    let status: SpeechService.Status
+
+    var body: some View {
+        HStack(spacing: 12) {
+            ProviderBadge(provider: provider)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(verbatim: provider.name).font(.headline)
+                Text(verbatim: provider.model).font(.callout).foregroundStyle(.secondary)
+            }
+            Spacer()
+            StatusBadge(status: status)
         }
     }
 }

@@ -3,6 +3,8 @@ import Foundation
 struct KayError: LocalizedError {
     let message: String
     var httpStatus: Int? = nil
+    /// What the provider itself said, for the log only: the HUD shows `message`.
+    var detail: String? = nil
     var errorDescription: String? { message }
     var isAuthFailure: Bool { httpStatus == 401 || httpStatus == 403 }
 }
@@ -76,12 +78,16 @@ final class QwenSession {
     private var readyCompletion: ((Result<Void, Error>) -> Void)?
     private var earlyResult: Result<String, Error>?
 
+    var provider: SpeechProvider { .qwen }
+
     init(apiKey: String, workspaceURL: String) {
         self.apiKey = apiKey
         self.workspaceURL = workspaceURL
     }
 
-    func start(onReady: ((Result<Void, Error>) -> Void)? = nil) {
+    func start() { start(onReady: nil) }
+
+    func start(onReady: ((Result<Void, Error>) -> Void)?) {
         queue.async {
             guard !self.done, self.task == nil else { return }
             self.readyCompletion = onReady
@@ -247,7 +253,10 @@ final class QwenSession {
             }
             complete(.success(text))
         case "task-failed":
-            complete(.failure(QwenError.service(code: header["error_code"] as? String ?? "")))
+            let code = header["error_code"] as? String ?? ""
+            var error = QwenError.service(code: code)
+            error.detail = "Qwen \(code): \(header["error_message"] as? String ?? "")"
+            complete(.failure(error))
         default: break
         }
     }

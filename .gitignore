@@ -3,3 +3,4 @@ build/
 .env
 tools/results.jsonl
 tools/recordings/
+__pycache__/

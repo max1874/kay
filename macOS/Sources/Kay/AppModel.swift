@@ -65,7 +65,7 @@ final class AppModel: ObservableObject {
     private lazy var hud = HUD()
     private let hotkey = HotkeyMonitor()
     private var capture: AudioCapture?
-    private var session: QwenSession?
+    private var session: SpeechSession?
     /// The audio of the dictation in progress, until its outcome is in history.
     private var pending: PendingDictation?
     private var pressedAt = Date()
@@ -230,7 +230,7 @@ final class AppModel: ObservableObject {
 
     private func begin() {
         guard state == .idle else { return }
-        guard let apiKey = speech.apiKey else {
+        guard let session = speech.makeSession() else {
             hud.flash(String(localized: "No API key yet. Add one in Kay → Settings → Speech Service."),
                       symbol: "key.fill", seconds: 3)
             return
@@ -248,7 +248,6 @@ final class AppModel: ObservableObject {
         // was waited for is a dictation to recognize (or report as not caught), not a mistap to drop silently.
         let pressed = Date()
 
-        let session = QwenSession(apiKey: apiKey, workspaceURL: speech.workspaceURL)
         let pending = PendingDictation()
         // The chosen microphone (or the system default), then the Mac's own if that one doesn't start.
         var microphones: [(id: AudioDeviceID, name: String)] = []
@@ -256,7 +255,7 @@ final class AppModel: ObservableObject {
         if let builtIn = Microphones.builtIn(), !microphones.contains(where: { $0.id == builtIn.id }) {
             microphones.append(builtIn)
         }
-        log.notice("key down; microphones to try: \(microphones.map { "\($0.name) [\($0.id)]" }.joined(separator: ", ")); system default: \(Microphones.defaultName() ?? "none")")
+        log.notice("key down (\(session.provider.rawValue)); microphones to try: \(microphones.map { "\($0.name) [\($0.id)]" }.joined(separator: ", ")); system default: \(Microphones.defaultName() ?? "none")")
 
         var started: AudioCapture?
         var failure: Error = KayError(message: String(localized: "No microphone input is available."))
@@ -318,14 +317,15 @@ final class AppModel: ObservableObject {
         state = .processing
         hud.recognize()
         let releasedAt = Date()
-        session.finish(lastChunk: rest) { [weak self] result in
+        let engine = session.provider
+        session.finish(lastChunk: rest, timeout: 10) { [weak self] result in
             DispatchQueue.main.async {
-                self?.deliver(result, audioSeconds: seconds, latency: Date().timeIntervalSince(releasedAt))
+                self?.deliver(result, engine: engine, audioSeconds: seconds, latency: Date().timeIntervalSince(releasedAt))
             }
         }
     }
 
-    private func deliver(_ result: Result<String, Error>, audioSeconds: Double, latency: TimeInterval) {
+    private func deliver(_ result: Result<String, Error>, engine: SpeechProvider, audioSeconds: Double, latency: TimeInterval) {
         session = nil
         state = .idle
         // Only after the outcome is recorded below: a crash before that leaves the audio to recover.
@@ -344,7 +344,8 @@ final class AppModel: ObservableObject {
                 hud.flash(String(localized: "Didn't catch that."), symbol: "ear.trianglebadge.exclamationmark")
                 return
             }
-            let entry = HistoryEntry(date: Date(), text: text, audioSeconds: audioSeconds, latencyMs: ms)
+            let entry = HistoryEntry(date: Date(), text: text, audioSeconds: audioSeconds, latencyMs: ms,
+                                     engine: engine.rawValue)
             record(entry)
             recorded = entry.id
             if AXIsProcessTrusted() {
@@ -357,11 +358,12 @@ final class AppModel: ObservableObject {
             }
         case .failure(let error):
             let message = error.localizedDescription
-            log.error("recognition failed: \(message)")
+            log.error("recognition failed (\(engine.rawValue)): \(message)\((error as? KayError)?.detail.map { " [\($0)]" } ?? "")")
             if let kayError = error as? KayError, kayError.isAuthFailure {
-                speech.markFailed(message)
+                speech.markFailed(message, provider: engine)
             }
-            let entry = HistoryEntry(date: Date(), text: "", audioSeconds: audioSeconds, latencyMs: nil, error: message)
+            let entry = HistoryEntry(date: Date(), text: "", audioSeconds: audioSeconds, latencyMs: nil, error: message,
+                                     engine: engine.rawValue)
             record(entry)
             recorded = entry.id
             hud.flash(message, symbol: "exclamationmark.triangle.fill", seconds: 4)
@@ -384,20 +386,21 @@ final class AppModel: ObservableObject {
 
     /// See `PendingDictation`. Oldest first, one at a time, into history without pasting.
     private func recoverLeftovers() {
-        guard let apiKey = speech.apiKey else { return }
-        recover(PendingDictation.leftovers()[...], apiKey: apiKey)
+        guard speech.hasKey else { return }
+        recover(PendingDictation.leftovers()[...])
     }
 
-    private func recover(_ leftovers: ArraySlice<(url: URL, started: Date)>, apiKey: String) {
+    private func recover(_ leftovers: ArraySlice<(url: URL, started: Date)>) {
         guard let first = leftovers.first else { return }
         let (url, started) = (first.url, first.started)
         let next = leftovers.dropFirst()
         guard let pcm = try? Data(contentsOf: url), !pcm.isEmpty else {
             try? FileManager.default.removeItem(at: url)
-            recover(next, apiKey: apiKey)
+            recover(next)
             return
         }
-        let session = QwenSession(apiKey: apiKey, workspaceURL: speech.workspaceURL)
+        guard let session = speech.makeSession() else { return }
+        let engine = session.provider
         session.start()
         // The same 200 ms packets a live dictation sends, only without waiting between them.
         var offset = 0
@@ -414,7 +417,8 @@ final class AppModel: ObservableObject {
                     let text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
                     log.notice("recovered an unfinished dictation of \(seconds) s: \(text.count) chars")
                     if !text.isEmpty {
-                        let entry = HistoryEntry(date: started, text: text, audioSeconds: seconds, latencyMs: nil)
+                        let entry = HistoryEntry(date: started, text: text, audioSeconds: seconds, latencyMs: nil,
+                                                 engine: engine.rawValue)
                         self.record(entry)
                         PendingDictation.keep(url, as: entry.id)
                         self.hud.flash(String(localized: "Recovered a dictation Kay didn't finish. It's in History."),
@@ -425,7 +429,7 @@ final class AppModel: ObservableObject {
                     // Kept for the next launch: no network yet at login is the usual reason.
                     log.error("unfinished dictation not recovered yet: \(error.localizedDescription)")
                 }
-                self.recover(next, apiKey: apiKey)
+                self.recover(next)
             }
         }
     }

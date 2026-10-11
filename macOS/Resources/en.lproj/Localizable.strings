@@ -44,9 +44,16 @@
 "Characters" = "Characters";
 "Audio Sent" = "Audio Sent";
 "Alibaba Cloud Console" = "Alibaba Cloud Console";
+"Volcengine Console" = "Volcengine Console";
+"Speech Service Settings…" = "Speech Service Settings…";
+"The speech service Kay dictates with. Each one uses its own key." = "The speech service Kay dictates with. Each one uses its own key.";
 
 /* Live */
 "Qwen Audio 3.1 · streaming" = "Qwen Audio 3.1 · streaming";
+"Streaming ASR 2.0 · sentence mode" = "Streaming ASR 2.0 · sentence mode";
+"Qwen" = "Qwen";
+"Doubao" = "Doubao";
+"Volcengine Doubao ASR" = "Volcengine Doubao ASR";
 "Recognizing…" = "Recognizing…";
 
 /* Settings */
@@ -66,32 +73,34 @@
 "Show in Finder" = "Show in Finder";
 "Version" = "Version";
 "Workspace URL" = "Workspace URL";
-"Kay uses your own Alibaba Cloud account. Audio goes straight from this Mac to Alibaba Cloud, your key stays in the macOS Keychain, and Alibaba Cloud bills you at its standard rates." = "Kay uses your own Alibaba Cloud account. Audio goes straight from this Mac to Alibaba Cloud, your key stays in the macOS Keychain, and Alibaba Cloud bills you at its standard rates.";
+"Dictate With" = "Dictate With";
+"Kay keeps dictating with %@ until this key passes the test." = "Kay keeps dictating with %@ until this key passes the test.";
+"Kay uses your own account with each service. Audio goes straight from this Mac to the one you choose, keys stay in the macOS Keychain, and each service bills you at its standard rates. You can also switch from the menu under the status line in Kay's window." = "Kay uses your own account with each service. Audio goes straight from this Mac to the one you choose, keys stay in the macOS Keychain, and each service bills you at its standard rates. You can also switch from the menu under the status line in Kay's window.";
 "API Key" = "API Key";
 "Alibaba Cloud Model Studio → API Key. Use the key and URL for the same workspace." = "Alibaba Cloud Model Studio → API Key. Use the key and URL for the same workspace.";
+"Volcengine console → Doubao Speech → API Key (new console)." = "Volcengine console → Doubao Speech → API Key (new console).";
 "Resource" = "Resource";
 "Hourly" = "Hourly";
 "Concurrent" = "Concurrent";
 "Test Again" = "Test Again";
 "Test & Save" = "Test & Save";
 "Get an API Key ↗" = "Get an API Key ↗";
-"Enable the Service ↗" = "Enable the Service ↗";
 "Remove Key…" = "Remove Key…";
-"Other Providers" = "Other Providers";
 "Alibaba Qwen ASR" = "Alibaba Qwen ASR";
-"Coming soon" = "Coming soon";
 "Remove this key from Kay?" = "Remove this key from Kay?";
 "Remove" = "Remove";
 "It stays valid in Alibaba Cloud. If it was exposed, revoke it in the console." = "It stays valid in Alibaba Cloud. If it was exposed, revoke it in the console.";
+"It stays valid in Volcengine. If it was exposed, revoke it in the console." = "It stays valid in Volcengine. If it was exposed, revoke it in the console.";
 "Saved (%@). Paste a new key to replace it." = "Saved (%@). Paste a new key to replace it.";
 "Paste your Alibaba Cloud API Key" = "Paste your Alibaba Cloud API Key";
+"Paste your Volcengine API Key" = "Paste your Volcengine API Key";
 "Not Set" = "Not Set";
 "Saved" = "Saved";
 "Testing…" = "Testing…";
 "Connected" = "Connected";
 "Failed" = "Failed";
 "Connected · %lld ms. Ready to dictate." = "Connected · %lld ms. Ready to dictate.";
-"Add your Alibaba Cloud API key." = "Add your Alibaba Cloud API key.";
+"Add an API key for %@." = "Add an API key for %@.";
 "Key saved (%@)." = "Key saved (%@).";
 "Connected · %lld ms" = "Connected · %lld ms";
 "The key works, but Kay couldn't save it to the Keychain." = "The key works, but Kay couldn't save it to the Keychain.";
@@ -106,6 +115,11 @@
 "Couldn't reach Alibaba Cloud. Check your network and workspace URL." = "Couldn't reach Alibaba Cloud. Check your network and workspace URL.";
 "Unknown error" = "Unknown error";
 "Alibaba Cloud returned an unreadable response." = "Alibaba Cloud returned an unreadable response.";
+"Volcengine rejected this key. Make sure you copied the whole key from the new console." = "Volcengine rejected this key. Make sure you copied the whole key from the new console.";
+"This key isn't enabled for Doubao Streaming ASR 2.0. Enable the service in the console, or switch the resource type." = "This key isn't enabled for Doubao Streaming ASR 2.0. Enable the service in the console, or switch the resource type.";
+"Couldn't reach Volcengine. Check your network or proxy." = "Couldn't reach Volcengine. Check your network or proxy.";
+"Malformed response from Volcengine." = "Malformed response from Volcengine.";
+"Doubao ASR couldn't finish this dictation. Try again or check your Volcengine account." = "Doubao ASR couldn't finish this dictation. Try again or check your Volcengine account.";
 "Recognition timed out." = "Recognition timed out.";
 "No microphone input is available." = "No microphone input is available.";
 

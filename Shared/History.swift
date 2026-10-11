@@ -8,6 +8,8 @@ struct HistoryEntry: Codable, Identifiable, Equatable {
     var latencyMs: Int?
     /// Set when recognition failed; `text` is empty then.
     var error: String?
+    /// The `SpeechProvider` that recognized it; nil before 1.7, when it was always one provider.
+    var engine: String? = nil
 
     /// Characters that were actually spoken: no spaces or punctuation.
     var spokenCharacters: Int {
