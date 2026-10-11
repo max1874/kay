@@ -61,7 +61,9 @@ microphone it came from (`microphone`).
 - **Streaming ASR.** Audio is converted to 16 kHz / 16-bit mono in 200 ms packets. Kay buffers it until
   the task is ready, sends packets in order, then finalizes the task on release. Final sentences are
   collected by sentence ID so partial revisions never duplicate text.
-- **Paste.** The text goes through the clipboard and a simulated ⌘V, and the previous clipboard is restored.
+- **Paste.** The text goes through the clipboard and a simulated ⌘V, and the previous clipboard is restored. With
+  **Settings → General → Show in Clipboard History** off, the text is marked transient (nspasteboard.org) so
+  clipboard history apps such as Raycast leave it out; the restored clipboard is always marked, since it is not a new copy.
   Without Accessibility permission Kay just copies it.
 - **History.** Every dictation — and the reason, when one fails — is kept on this Mac in
   `~/Library/Application Support/Kay/history.json` (last 1000). Click one to copy it again.

@@ -26,6 +26,13 @@ final class AppModel: ObservableObject {
         UserDefaults.standard.object(forKey: dockIconKey) as? Bool ?? true
     }
 
+    /// Off: the text Kay pastes is marked so clipboard history apps (Raycast, Maccy, Paste) leave it out.
+    static let clipboardHistoryKey = "showInClipboardHistory"
+
+    static var showsInClipboardHistory: Bool {
+        UserDefaults.standard.object(forKey: clipboardHistoryKey) as? Bool ?? true
+    }
+
     static func applyDockIcon(_ show: Bool) {
         NSApp.setActivationPolicy(show ? .regular : .accessory)
         // Leaving .regular deactivates the app; the window the change was made in stays in front.
@@ -356,7 +363,7 @@ final class AppModel: ObservableObject {
             recorded = entry.id
             if AXIsProcessTrusted() {
                 hud.hide()
-                TextInserter.insert(text)
+                TextInserter.insert(text, inClipboardHistory: Self.showsInClipboardHistory)
             } else {
                 copy(text)
                 hud.flash(String(localized: "Copied. Kay needs Accessibility permission to paste for you."),
