@@ -93,24 +93,28 @@ final class Correction: ObservableObject {
         }
     }
 
-    /// A correction swaps a few words, often Chinese characters for an English name (吉特哈布 → GitHub). A reply
-    /// or a prefix ("好的，" "改正后的文本：") adds Chinese characters or English words of its own; dropping part of
-    /// the text removes many. Compared as tokens (a run of Latin letters and digits is one, any other letter is one)
-    /// matched by longest common subsequence. On the 2026-10-12 eval every correction passed: the most added was
-    /// 4 characters in 66 tokens (千万 → 通义千问, 的 → 地), the most removed 5 in 155 (D 二里 → D2, twice).
+    /// A correction replaces words in place: a homophone (高警 → 告警), or Chinese characters for an English name
+    /// (吉特哈布 → GitHub). A reply or a prefix ("好的，" "改正后的文本：") inserts characters of its own or English
+    /// words, and a reply or a cut ("OK" for 提交一下吧) deletes text without replacing it. The texts are compared as
+    /// tokens (a run of Latin letters and digits is one, any other letter is one), aligned by longest common
+    /// subsequence; at each place they differ, every added character or Latin letter stands for one removed token.
+    /// On the 2026-10-12 eval every correction passed (at most 2 inserted, 通义; nothing deleted); the replies,
+    /// prefixes and cuts tried did not (asr-lexicon eval/kay/guard.py, the same rule in Python).
     private static func accept(_ answer: String, for text: String) -> String? {
         let corrected = answer.replacingOccurrences(of: "<transcript>", with: "")
             .replacingOccurrences(of: "</transcript>", with: "")
             .trimmingCharacters(in: .whitespacesAndNewlines)
         let before = tokens(text), after = tokens(corrected)
         guard !after.isEmpty else { return nil }
-        let (removed, added) = unmatched(before, after)
-        let addedLatin = added.filter(isLatin).count
-        let addedOther = added.count - addedLatin
-        guard addedOther <= max(1, before.filter { !isLatin($0) }.count / 6),
-              addedLatin <= max(2, before.count / 6),
-              removed.count <= max(5, before.count / 5)
-        else { return nil }
+        var deleted = 0, inserted = 0, latinWords = 0
+        for (removed, added) in differences(before, after) {
+            let cover = added.reduce(0) { $0 + (isLatin($1) ? $1.count : 1) }
+            deleted += max(0, removed.count - cover)
+            inserted += max(0, added.filter { !isLatin($0) }.count - removed.count)
+            latinWords += added.filter(isLatin).count
+        }
+        let n = before.count
+        guard deleted <= max(1, n / 20), inserted <= max(1, n / 10), latinWords <= max(2, n / 6) else { return nil }
         return corrected
     }
 
@@ -131,22 +135,32 @@ final class Correction: ObservableObject {
 
     private static func isLatin(_ token: String) -> Bool { token.first?.isASCII == true }
 
-    /// The tokens of `a` and of `b` outside their longest common subsequence.
-    private static func unmatched(_ a: [String], _ b: [String]) -> (removed: [String], added: [String]) {
+    /// Each place `a` and `b` differ outside their longest common subsequence: the tokens removed from `a` there
+    /// and the tokens added in `b`.
+    private static func differences(_ a: [String], _ b: [String]) -> [(removed: [String], added: [String])] {
         var lcs = Array(repeating: Array(repeating: 0, count: b.count + 1), count: a.count + 1)
         for i in stride(from: a.count - 1, through: 0, by: -1) {
             for j in stride(from: b.count - 1, through: 0, by: -1) {
                 lcs[i][j] = a[i] == b[j] ? lcs[i + 1][j + 1] + 1 : max(lcs[i + 1][j], lcs[i][j + 1])
             }
         }
+        var places: [(removed: [String], added: [String])] = []
         var removed: [String] = [], added: [String] = []
         var i = 0, j = 0
         while i < a.count && j < b.count {
-            if a[i] == b[j] { i += 1; j += 1 }
-            else if lcs[i + 1][j] >= lcs[i][j + 1] { removed.append(a[i]); i += 1 }
-            else { added.append(b[j]); j += 1 }
+            if a[i] == b[j] {
+                if !removed.isEmpty || !added.isEmpty { places.append((removed, added)); removed = []; added = [] }
+                i += 1; j += 1
+            } else if lcs[i + 1][j] >= lcs[i][j + 1] {
+                removed.append(a[i]); i += 1
+            } else {
+                added.append(b[j]); j += 1
+            }
         }
-        return (removed + a[i...], added + b[j...])
+        removed += a[i...]
+        added += b[j...]
+        if !removed.isEmpty || !added.isEmpty { places.append((removed, added)) }
+        return places
     }
 
     @MainActor
