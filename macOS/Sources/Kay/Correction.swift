@@ -20,9 +20,9 @@ final class Correction: ObservableObject {
     static let consoleURL = URL(string: "https://platform.deepseek.com/usage")!
     /// The slowest of 66 calls on 2026-10-12 took 1.15 s.
     private static let timeout: TimeInterval = 3
-    /// Below this many spoken characters there is little to correct and a reply ("好的，已提交" for "提交吧")
-    /// can't be told from a correction by length, so the text is pasted as heard.
-    private static let minimumLength = 6
+    /// Below this many tokens (see `accept`) there is little to correct and a reply ("好的，已提交" for "提交吧")
+    /// is hard to tell from a correction, so the text is pasted as heard.
+    private static let minimumLength = 4
     private static let endpoint = URL(string: "https://api.deepseek.com/chat/completions")!
 
     /// `timeoutInterval` on a request is an idle timeout, and DeepSeek keeps a busy request alive by sending
@@ -66,7 +66,7 @@ final class Correction: ObservableObject {
 
     /// The corrected text, or nil to paste `text` as heard. Calls back on the main queue.
     func correct(_ text: String, completion: @escaping (_ corrected: String?, _ ms: Int?) -> Void) {
-        guard Self.isEnabled, let key, Self.spoken(text).count >= Self.minimumLength else { return completion(nil, nil) }
+        guard Self.isEnabled, let key, Self.tokens(text).count >= Self.minimumLength else { return completion(nil, nil) }
         let started = Date()
         Self.send(key: key, text: text, over: Self.dictationSession) { [weak self] result in
             let ms = Int(Date().timeIntervalSince(started) * 1000)
@@ -91,34 +91,60 @@ final class Correction: ObservableObject {
         }
     }
 
-    /// A correction changes a few words. An answer further than a third of the text away (by edit distance over
-    /// the spoken characters) is the model replying, prefixing ("改正后的文本：") or dropping, and is not pasted.
-    /// On the 2026-10-12 eval the largest accepted change was 9 of 77 (千万 → 通义千问, Casual → Cursor) and
-    /// 6 of 21 (Live 图 → Live Photo, which Max judged right).
+    /// A correction swaps a few words, often Chinese characters for an English name (吉特哈布 → GitHub). A reply
+    /// or a prefix ("好的，" "改正后的文本：") adds Chinese characters or English words of its own; dropping part of
+    /// the text removes many. Compared as tokens (a run of Latin letters and digits is one, any other letter is one)
+    /// matched by longest common subsequence. On the 2026-10-12 eval every correction passed: the most added was
+    /// 4 characters in 66 tokens (千万 → 通义千问, 的 → 地), the most removed 5 in 155 (D 二里 → D2, twice).
     private static func accept(_ answer: String, for text: String) -> String? {
         let corrected = answer.replacingOccurrences(of: "<transcript>", with: "")
             .replacingOccurrences(of: "</transcript>", with: "")
             .trimmingCharacters(in: .whitespacesAndNewlines)
-        let before = spoken(text), after = spoken(corrected)
-        guard !after.isEmpty, distance(before, after) <= before.count / 3 else { return nil }
+        let before = tokens(text), after = tokens(corrected)
+        guard !after.isEmpty else { return nil }
+        let (removed, added) = unmatched(before, after)
+        let addedLatin = added.filter(isLatin).count
+        let addedOther = added.count - addedLatin
+        guard addedOther <= max(1, before.filter { !isLatin($0) }.count / 6),
+              addedLatin <= max(2, before.count / 6),
+              removed.count <= max(5, before.count / 5)
+        else { return nil }
         return corrected
     }
 
-    private static func spoken(_ s: String) -> [Unicode.Scalar] {
-        let skip = CharacterSet.whitespacesAndNewlines.union(.punctuationCharacters).union(.symbols)
-        return s.lowercased().unicodeScalars.filter { !skip.contains($0) }
+    private static func tokens(_ s: String) -> [String] {
+        var tokens: [String] = []
+        var run = ""
+        for c in s.lowercased() {
+            if c.isASCII && (c.isLetter || c.isNumber) {
+                run.append(c)
+                continue
+            }
+            if !run.isEmpty { tokens.append(run); run = "" }
+            if c.isLetter { tokens.append(String(c)) }
+        }
+        if !run.isEmpty { tokens.append(run) }
+        return tokens
     }
 
-    private static func distance(_ a: [Unicode.Scalar], _ b: [Unicode.Scalar]) -> Int {
-        var previous = Array(0...b.count)
-        for (i, x) in a.enumerated() {
-            var current = [i + 1]
-            for (j, y) in b.enumerated() {
-                current.append(min(previous[j + 1] + 1, current[j] + 1, previous[j] + (x == y ? 0 : 1)))
+    private static func isLatin(_ token: String) -> Bool { token.first?.isASCII == true }
+
+    /// The tokens of `a` and of `b` outside their longest common subsequence.
+    private static func unmatched(_ a: [String], _ b: [String]) -> (removed: [String], added: [String]) {
+        var lcs = Array(repeating: Array(repeating: 0, count: b.count + 1), count: a.count + 1)
+        for i in stride(from: a.count - 1, through: 0, by: -1) {
+            for j in stride(from: b.count - 1, through: 0, by: -1) {
+                lcs[i][j] = a[i] == b[j] ? lcs[i + 1][j + 1] + 1 : max(lcs[i + 1][j], lcs[i][j + 1])
             }
-            previous = current
         }
-        return previous[b.count]
+        var removed: [String] = [], added: [String] = []
+        var i = 0, j = 0
+        while i < a.count && j < b.count {
+            if a[i] == b[j] { i += 1; j += 1 }
+            else if lcs[i + 1][j] >= lcs[i][j + 1] { removed.append(a[i]); i += 1 }
+            else { added.append(b[j]); j += 1 }
+        }
+        return (removed + a[i...], added + b[j...])
     }
 
     @MainActor

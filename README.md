@@ -69,8 +69,9 @@ microphone it came from (`microphone`).
   speech service misheard, such as product names, without rewording; on by default, and a no-op until a key is
   added. On 22 of Max's dictations (2026-10-12) it took Doubao from 5.5% to 3.7–4.8% CER without changing a correct
   word into a wrong one; Qwen models with the same prompt made things worse. It adds about half a second (median
-  0.6 s). Kay pastes what it heard when the whole request takes over 3 s, fails, or comes back more than a third
-  different (a reply rather than a correction), and for dictations under 6 characters. History
+  0.6 s). Kay pastes what it heard when the whole request takes over 3 s, fails, or adds Chinese characters or English
+  words beyond a few, or drops a fifth of the text (a reply or a prefix rather than a correction), and for
+  dictations under 4 words or characters. History
   keeps the recognizer's text in `heard` when correction changed it.
 - **History.** Every dictation — and the reason, when one fails — is kept on this Mac in
   `~/Library/Application Support/Kay/history.json` (last 1000). Click one to copy it again.
