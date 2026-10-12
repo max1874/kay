@@ -1,12 +1,14 @@
 import Foundation
 import Security
 
-/// Each speech provider's API key, as a generic password under the bundle id (same scheme as Lumo).
+/// Each provider's API key, as a generic password under the bundle id (same scheme as Lumo).
 enum Keychain {
     /// One item per provider. The names are the ones each provider's key was first stored under.
     enum Account: String {
         case dashscope = "dashscope-api-key"
         case volcengine = "volc-api-key"
+        /// Not a speech provider: the Mac's correction after recognition (`Correction`).
+        case deepseek = "deepseek-api-key"
     }
 
     private static let service = "com.max1874.kay"

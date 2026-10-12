@@ -65,6 +65,12 @@ microphone it came from (`microphone`).
   **Settings → General → Show in Clipboard History** off, the text is marked transient (nspasteboard.org) so
   clipboard history apps such as Raycast leave it out; the restored clipboard is always marked, since it is not a new copy.
   Without Accessibility permission Kay just copies it.
+- **Correction.** Before pasting, DeepSeek V4.1 Flash (your own key, **Settings → Correction**) fixes words the
+  speech service misheard, such as product names, without rewording; on by default, and a no-op until a key is
+  added. On 22 of Max's dictations (2026-10-12) it took Doubao from 5.5% to 3.7–4.8% CER without changing a correct
+  word into a wrong one; Qwen models with the same prompt made things worse. It adds about 0.6 s; with no answer
+  in 3 s, an error, or an answer that looks like a reply instead of a correction, Kay pastes what it heard. History
+  keeps the recognizer's text in `heard` when correction changed it.
 - **History.** Every dictation — and the reason, when one fails — is kept on this Mac in
   `~/Library/Application Support/Kay/history.json` (last 1000). Click one to copy it again.
 - **Recent audio.** The last 20 dictations' audio is kept next to it in `recent/<entry id>.wav`, so a
@@ -82,7 +88,8 @@ microphone it came from (`microphone`).
 Your keys are stored in the macOS Keychain. Audio goes directly from your Mac to the service you picked:
 the Alibaba Cloud workspace you configure (`*.maas.aliyuncs.com` or `dashscope.aliyuncs.com`) or Volcengine
 (`openspeech.bytedance.com`). Recent audio stays on this Mac except when
-you explicitly send it again for recognition.
+you explicitly send it again for recognition. With a DeepSeek key added, the recognized text (not the audio) goes
+to `api.deepseek.com` for correction.
 
 ## Build from source
 
@@ -144,7 +151,7 @@ Apple 芯片的 macOS 26）。1.5.0 起自动更新：每天检查一次，后�
 **快捷键**：默认 fn，可改成右 Option。按住时再按其他键会取消本次录音，所以 fn 和 ⌥ 组合键照常可用。
 如果松开 fn 后弹出了表情面板，把「系统设置 → 键盘 → 按下 🌐 键时」设为「不执行任何操作」。
 
-**隐私**：Key 只存在 macOS 钥匙串；音频从你的 Mac 直接发到你选的服务（阿里云或火山引擎），不经过其他地方。
+**隐私**：Key 只存在 macOS 钥匙串；音频从你的 Mac 直接发到你选的服务（阿里云或火山引擎），不经过其他地方。填了 DeepSeek Key 时，识别出的文字（不是音频）会发给 DeepSeek 纠错（「设置 → 纠错」，默认开启）。
 听写历史只保存在本机，可在「设置 → 通用」里全部清除。
 
 **iPhone 版**：`iOS/` 是一次主动叫停的实验。用操作按钮 / 控制中心触发录音、灵动岛显示状态，这些都跑通了；
