@@ -93,28 +93,41 @@ final class Correction: ObservableObject {
         }
     }
 
-    /// A correction replaces words in place: a homophone (高警 → 告警), or Chinese characters for an English name
-    /// (吉特哈布 → GitHub). A reply or a prefix ("好的，" "改正后的文本：") inserts characters of its own or English
-    /// words, and a reply or a cut ("OK" for 提交一下吧) deletes text without replacing it. The texts are compared as
-    /// tokens (a run of Latin letters and digits is one, any other letter is one), aligned by longest common
-    /// subsequence; at each place they differ, every added character or Latin letter stands for one removed token.
-    /// On the 2026-10-12 eval every correction passed (at most 2 inserted, 通义; nothing deleted); the replies,
-    /// prefixes and cuts tried did not (asr-lexicon eval/kay/guard.py, the same rule in Python).
+    /// A correction replaces a few words in place: a homophone (高警 → 告警), or Chinese characters for an English
+    /// name (吉特哈布 → GitHub). A reply adds a preamble or sign-off ("好的，" "Corrected text:" "（已改正）"),
+    /// rewrites the Chinese ("我无法得知时间" for 现在几点了啊), or drops text ("OK" for 提交一下吧, a cut-off end).
+    /// The texts are compared as tokens (a run of Latin letters and digits is one, any other letter is one), aligned
+    /// by longest common subsequence, and judged at each place they differ: nothing may be added before the first
+    /// word or after the last; each added character or Latin letter stands for one removed token, and what is left
+    /// over counts as deleted or inserted; Chinese rewritten as other Chinese is limited to a fifth.
+    /// One reply shape gets through: a short dictation replaced by an English word as long as it ("Done" for
+    /// 提交一下吧), which can't be told from a name fix by counting. It was not seen on the eval.
+    /// asr-lexicon eval/kay/guard.py is the same rule in Python, with the eval outputs (all accepted) and the
+    /// replies above (all rejected but that one).
     private static func accept(_ answer: String, for text: String) -> String? {
         let corrected = answer.replacingOccurrences(of: "<transcript>", with: "")
             .replacingOccurrences(of: "</transcript>", with: "")
             .trimmingCharacters(in: .whitespacesAndNewlines)
         let before = tokens(text), after = tokens(corrected)
         guard !after.isEmpty else { return nil }
-        var deleted = 0, inserted = 0, latinWords = 0
-        for (removed, added) in differences(before, after) {
-            let cover = added.reduce(0) { $0 + (isLatin($1) ? $1.count : 1) }
-            deleted += max(0, removed.count - cover)
-            inserted += max(0, added.filter { !isLatin($0) }.count - removed.count)
-            latinWords += added.filter(isLatin).count
+        let places = differences(before, after)
+        guard !places.contains(where: { $0.removed.isEmpty && ($0.atStart || $0.atEnd) }) else { return nil }
+        var deleted = 0, inserted = 0, rewritten = 0, latinWords = 0
+        for place in places {
+            let addedLatin = place.added.filter(isLatin).count
+            let addedOther = place.added.count - addedLatin
+            let cover = place.added.reduce(0) { $0 + (isLatin($1) ? $1.count : 1) }
+            deleted += max(0, place.removed.count - cover)
+            // English words that replace nothing are inserted too.
+            inserted += max(0, addedOther - place.removed.count) + (place.removed.isEmpty ? addedLatin : 0)
+            rewritten += min(place.removed.filter { !isLatin($0) }.count, addedOther)
+            latinWords += addedLatin
         }
         let n = before.count
-        guard deleted <= max(1, n / 20), inserted <= max(1, n / 10), latinWords <= max(2, n / 6) else { return nil }
+        let chinese = before.filter { !isLatin($0) }.count
+        guard deleted <= max(1, n / 20), inserted <= max(1, n / 10), rewritten <= max(1, chinese / 5),
+              latinWords <= max(2, n / 6)
+        else { return nil }
         return corrected
     }
 
@@ -135,21 +148,27 @@ final class Correction: ObservableObject {
 
     private static func isLatin(_ token: String) -> Bool { token.first?.isASCII == true }
 
-    /// Each place `a` and `b` differ outside their longest common subsequence: the tokens removed from `a` there
-    /// and the tokens added in `b`.
-    private static func differences(_ a: [String], _ b: [String]) -> [(removed: [String], added: [String])] {
+    private typealias Place = (removed: [String], added: [String], atStart: Bool, atEnd: Bool)
+
+    /// Each place `a` and `b` differ outside their longest common subsequence: the tokens removed from `a` there,
+    /// the tokens added in `b`, and whether it comes before the first common token or after the last.
+    private static func differences(_ a: [String], _ b: [String]) -> [Place] {
         var lcs = Array(repeating: Array(repeating: 0, count: b.count + 1), count: a.count + 1)
         for i in stride(from: a.count - 1, through: 0, by: -1) {
             for j in stride(from: b.count - 1, through: 0, by: -1) {
                 lcs[i][j] = a[i] == b[j] ? lcs[i + 1][j + 1] + 1 : max(lcs[i + 1][j], lcs[i][j + 1])
             }
         }
-        var places: [(removed: [String], added: [String])] = []
+        var places: [Place] = []
         var removed: [String] = [], added: [String] = []
-        var i = 0, j = 0
+        var i = 0, j = 0, atStart = true
         while i < a.count && j < b.count {
             if a[i] == b[j] {
-                if !removed.isEmpty || !added.isEmpty { places.append((removed, added)); removed = []; added = [] }
+                if !removed.isEmpty || !added.isEmpty {
+                    places.append((removed, added, atStart, false))
+                    removed = []; added = []
+                }
+                atStart = false
                 i += 1; j += 1
             } else if lcs[i + 1][j] >= lcs[i][j + 1] {
                 removed.append(a[i]); i += 1
@@ -159,7 +178,7 @@ final class Correction: ObservableObject {
         }
         removed += a[i...]
         added += b[j...]
-        if !removed.isEmpty || !added.isEmpty { places.append((removed, added)) }
+        if !removed.isEmpty || !added.isEmpty { places.append((removed, added, atStart, true)) }
         return places
     }
 
