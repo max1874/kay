@@ -7,9 +7,11 @@
 用法:
   uv run tools/polish.py                                  # 默认：豆包最近一次不带热词的结果，qwen-flash，两种提示
   uv run tools/polish.py --engine qwen --models qwen-flash,qwen-plus --modes fix
+  DEEPSEEK_API_KEY=... uv run tools/polish.py --models deepseek-flash
 
 输入取 RESULTS.md 里每个用例最近一次不带热词的识别结果（eval.py 跑出来的），参考答案取用例 .txt；
-模型走 DashScope 的 OpenAI 兼容接口，用 .env 里 Kay 同一把 DASHSCOPE_API_KEY 和工作空间地址。
+qwen 模型走 DashScope 的 OpenAI 兼容接口，用 .env 里 Kay 同一把 DASHSCOPE_API_KEY 和工作空间地址；
+deepseek-* 走 DeepSeek 官方接口（deepseek-flash 即 V4.1-Flash），关掉推理，key 取 .env 或环境变量 DEEPSEEK_API_KEY。
 两种提示：
   fix     只改识别错（同音字、英文专名、标点），一字不增删，不回答
   polish  在 fix 的基础上去掉语气词、重复和口误，像飞书语音输入那样整理成书面句子
@@ -18,6 +20,7 @@ CER 对的是 Max 标的逐字参考，所以 polish 去掉语气词也会算错
 
 import argparse
 import json
+import os
 import pathlib
 import statistics
 import time
@@ -47,13 +50,18 @@ def latest_outputs(results: pathlib.Path, engine: str):
 
 
 def chat(env, model, system, text):
-    base = env["DASHSCOPE_BASE_URL"].rstrip("/")
-    body = {"model": model, "temperature": 0, "enable_thinking": False,
+    body = {"model": model, "temperature": 0,
             "messages": [{"role": "system", "content": system},
                          {"role": "user", "content": f"<transcript>\n{text}\n</transcript>"}]}
-    req = urllib.request.Request(base + "/compatible-mode/v1/chat/completions", data=json.dumps(body).encode(),
-                                 headers={"Authorization": "Bearer " + env["DASHSCOPE_API_KEY"],
-                                          "Content-Type": "application/json"})
+    if model.startswith("deepseek"):
+        url, key = "https://api.deepseek.com/chat/completions", env["DEEPSEEK_API_KEY"]
+        body["thinking"] = {"type": "disabled"}  # deepseek-flash 默认带推理
+    else:
+        url = env["DASHSCOPE_BASE_URL"].rstrip("/") + "/compatible-mode/v1/chat/completions"
+        key = env["DASHSCOPE_API_KEY"]
+        body["enable_thinking"] = False
+    req = urllib.request.Request(url, data=json.dumps(body).encode(),
+                                 headers={"Authorization": "Bearer " + key, "Content-Type": "application/json"})
     t = time.monotonic()
     with urllib.request.urlopen(req, timeout=30) as r:
         data = json.load(r)
@@ -73,6 +81,8 @@ def main():
     root = ev.repo_root()
     cases = pathlib.Path(args.cases or root.parent / "asr-lexicon" / "eval" / "kay")
     env = ev.load_env(pathlib.Path(args.env or root / ".env"))
+    if "DEEPSEEK_API_KEY" in os.environ:
+        env["DEEPSEEK_API_KEY"] = os.environ["DEEPSEEK_API_KEY"]
     outputs = latest_outputs(cases / "RESULTS.md", args.engine)
 
     rows = []
