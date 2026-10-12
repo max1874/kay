@@ -2,7 +2,7 @@ import AppKit
 import SwiftUI
 
 enum SettingsTab: String {
-    case general, speech
+    case general, speech, correction
 
     /// Shared with Home, whose "Add API Key" opens Settings on the Speech Service tab.
     static let storageKey = "settings.tab"
@@ -19,6 +19,9 @@ struct SettingsView: View {
             SpeechSettings()
                 .tabItem { Label("Speech Service", systemImage: "waveform.badge.mic") }
                 .tag(SettingsTab.speech)
+            CorrectionSettings()
+                .tabItem { Label("Correction", systemImage: "text.badge.checkmark") }
+                .tag(SettingsTab.correction)
         }
         .frame(width: 560)
     }
@@ -328,6 +331,131 @@ private struct SpeechSettings: View {
             draft = ""
             // A service set up here, and still the one picked, is the one the user wants to dictate with.
             speech.select(provider)
+        }
+    }
+}
+
+// MARK: - Correction
+
+/// The switch and DeepSeek key for `Correction`. On by default; without a key it has nothing to run on.
+private struct CorrectionSettings: View {
+    @ObservedObject private var correction = Correction.shared
+    @AppStorage(Correction.enabledKey) private var enabled = true
+    @State private var draft = ""
+    @State private var confirmRemove = false
+
+    private var trimmedDraft: String { draft.trimmingCharacters(in: .whitespacesAndNewlines) }
+
+    var body: some View {
+        Form {
+            Section {
+                Toggle("Fix Misheard Words", isOn: $enabled)
+                if enabled && !correction.hasKey {
+                    Label("Add a DeepSeek API key below to turn this on.", systemImage: "info.circle")
+                        .foregroundStyle(.secondary)
+                }
+            } footer: {
+                Text("After recognition, DeepSeek V4.1 Flash corrects words the speech service misheard, such as product names, without rewording what you said. It adds about half a second. If DeepSeek doesn't answer within 3 seconds, Kay pastes what it heard.")
+                    .foregroundStyle(.secondary)
+            }
+
+            Section {
+                SecureField(text: $draft, prompt: keyPrompt) { Text("API Key") }
+                    .onSubmit(test)
+                    .onChange(of: draft) { correction.clearCandidateError() }
+                HStack(spacing: 12) {
+                    Button(action: test) {
+                        if correction.status == .testing {
+                            ProgressView().controlSize(.small)
+                        } else if correction.hasKey && trimmedDraft.isEmpty {
+                            Text("Test Again")
+                        } else {
+                            Text("Test & Save")
+                        }
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(correction.status == .testing || (trimmedDraft.isEmpty && !correction.hasKey))
+                    CorrectionStatus(status: correction.status, candidateError: correction.candidateError)
+                    Spacer(minLength: 0)
+                }
+            } header: {
+                HStack {
+                    Text("DeepSeek API Key")
+                    Spacer()
+                    StatusBadge(status: correction.status)
+                }
+            } footer: {
+                HStack(spacing: 14) {
+                    Text("DeepSeek Platform → API Keys. DeepSeek bills you at its standard rates.")
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Link("Get an API Key ↗", destination: Correction.apiKeysURL)
+                    Link("DeepSeek Platform", destination: Correction.consoleURL)
+                }
+            }
+
+            if correction.hasKey {
+                Section {
+                    Button("Remove Key…", role: .destructive) { confirmRemove = true }
+                }
+            }
+        }
+        .formStyle(.grouped)
+        .fixedSize(horizontal: false, vertical: true)
+        .confirmationDialog("Remove this key from Kay?", isPresented: $confirmRemove) {
+            Button("Remove", role: .destructive) { correction.remove() }
+        } message: {
+            Text("It stays valid in DeepSeek. If it was exposed, revoke it on the DeepSeek Platform.")
+        }
+    }
+
+    private var keyPrompt: Text {
+        if let masked = correction.maskedKey {
+            Text("Saved (\(masked)). Paste a new key to replace it.")
+        } else {
+            Text("Paste your DeepSeek API Key")
+        }
+    }
+
+    private func test() {
+        let key = trimmedDraft
+        guard !key.isEmpty || correction.hasKey else { return }
+        Task { @MainActor in
+            await correction.test(newKey: key.isEmpty ? nil : key)
+            if case .connected = correction.status, correction.candidateError == nil { draft = "" }
+        }
+    }
+}
+
+/// `StatusMessage` without the dictation wording.
+private struct CorrectionStatus: View {
+    let status: SpeechService.Status
+    let candidateError: String?
+
+    var body: some View {
+        if let candidateError {
+            Label {
+                Text(verbatim: candidateError).fixedSize(horizontal: false, vertical: true)
+            } icon: {
+                Image(systemName: "xmark.octagon.fill").foregroundStyle(.red)
+            }
+        } else {
+            switch status {
+            case .connected(let ms):
+                Label {
+                    Text("Connected · \(ms) ms")
+                } icon: {
+                    Image(systemName: "checkmark.seal.fill").foregroundStyle(.green)
+                }
+            case .failed(let message):
+                Label {
+                    Text(verbatim: message).fixedSize(horizontal: false, vertical: true)
+                } icon: {
+                    Image(systemName: "xmark.octagon.fill").foregroundStyle(.red)
+                }
+            default:
+                EmptyView()
+            }
         }
     }
 }

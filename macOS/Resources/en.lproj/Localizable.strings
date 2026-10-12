@@ -138,3 +138,18 @@
 "Kay pastes through the clipboard and then puts back what was there. When this is off, clipboard history apps such as Raycast leave dictations out." = "Kay pastes through the clipboard and then puts back what was there. When this is off, clipboard history apps such as Raycast leave dictations out.";
 "Recovered a dictation Kay didn't finish. It's in History." = "Recovered a dictation Kay didn't finish. It's in History.";
 "Copied. Kay needs Accessibility permission to paste for you." = "Copied. Kay needs Accessibility permission to paste for you.";
+
+/* Correction */
+"Correction" = "Correction";
+"Fix Misheard Words" = "Fix Misheard Words";
+"Add a DeepSeek API key below to turn this on." = "Add a DeepSeek API key below to turn this on.";
+"After recognition, DeepSeek V4.1 Flash corrects words the speech service misheard, such as product names, without rewording what you said. It adds about half a second. If DeepSeek doesn't answer within 3 seconds, Kay pastes what it heard." = "After recognition, DeepSeek V4.1 Flash corrects words the speech service misheard, such as product names, without rewording what you said. It adds about half a second. If DeepSeek doesn't answer within 3 seconds, Kay pastes what it heard.";
+"DeepSeek API Key" = "DeepSeek API Key";
+"DeepSeek Platform → API Keys. DeepSeek bills you at its standard rates." = "DeepSeek Platform → API Keys. DeepSeek bills you at its standard rates.";
+"DeepSeek Platform" = "DeepSeek Platform";
+"Paste your DeepSeek API Key" = "Paste your DeepSeek API Key";
+"It stays valid in DeepSeek. If it was exposed, revoke it on the DeepSeek Platform." = "It stays valid in DeepSeek. If it was exposed, revoke it on the DeepSeek Platform.";
+"Couldn't reach DeepSeek." = "Couldn't reach DeepSeek.";
+"DeepSeek rejected this key." = "DeepSeek rejected this key.";
+"The DeepSeek account has run out of balance." = "The DeepSeek account has run out of balance.";
+"DeepSeek returned an error: %@" = "DeepSeek returned an error: %@";

@@ -111,6 +111,8 @@ final class AppModel: ObservableObject {
         if speech.hasKey {
             Task { await speech.test(newKey: nil) }
         }
+        // Reads its key from the Keychain now, not during the first dictation.
+        _ = Correction.shared
         recoverLeftovers()
     }
 
@@ -329,16 +331,33 @@ final class AppModel: ObservableObject {
         let releasedAt = Date()
         let engine = session.provider
         let microphone = recordingFrom
+        weak var dictation = session
         session.finish(lastChunk: rest, timeout: 10) { [weak self] result in
             DispatchQueue.main.async {
-                self?.deliver(result, engine: engine, microphone: microphone, audioSeconds: seconds,
-                              latency: Date().timeIntervalSince(releasedAt))
+                guard let self else { return }
+                func deliver(_ result: Result<String, Error>, heard: String? = nil, correctionMs: Int? = nil) {
+                    self.deliver(result, engine: engine, microphone: microphone, audioSeconds: seconds,
+                                 latency: Date().timeIntervalSince(releasedAt), heard: heard, correctionMs: correctionMs)
+                }
+                // Still processing, so the HUD keeps showing recognition and a quit waits for the paste.
+                guard case .success(let raw) = result else { return deliver(result) }
+                let text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !text.isEmpty else { return deliver(result) }
+                Correction.shared.correct(text) { corrected, ms in
+                    // Cancelled meanwhile, like a session cancelled before its result. By identity, not by state:
+                    // after a cancel the next dictation may be processing, and its audio and paste are its own.
+                    guard self.state == .processing, let current = self.session, current === dictation else {
+                        return log.notice("correction for a cancelled dictation dropped")
+                    }
+                    guard let corrected, corrected != text else { return deliver(result, correctionMs: ms) }
+                    deliver(.success(corrected), heard: text, correctionMs: ms)
+                }
             }
         }
     }
 
     private func deliver(_ result: Result<String, Error>, engine: SpeechProvider, microphone: String?, audioSeconds: Double,
-                         latency: TimeInterval) {
+                         latency: TimeInterval, heard: String? = nil, correctionMs: Int? = nil) {
         session = nil
         state = .idle
         // Only after the outcome is recorded below: a crash before that leaves the audio to recover.
@@ -358,7 +377,8 @@ final class AppModel: ObservableObject {
                 return
             }
             let entry = HistoryEntry(date: Date(), text: text, audioSeconds: audioSeconds, latencyMs: ms,
-                                     engine: engine.rawValue, microphone: microphone)
+                                     engine: engine.rawValue, microphone: microphone, heard: heard,
+                                     correctionMs: correctionMs)
             record(entry)
             recorded = entry.id
             if AXIsProcessTrusted() {

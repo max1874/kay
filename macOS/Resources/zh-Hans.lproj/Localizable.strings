@@ -138,3 +138,18 @@
 "Kay pastes through the clipboard and then puts back what was there. When this is off, clipboard history apps such as Raycast leave dictations out." = "Kay 借剪贴板粘贴，粘贴后放回原来的内容。关闭后，Raycast 等剪贴板历史工具不会记录听写的文字。";
 "Recovered a dictation Kay didn't finish. It's in History." = "找回了一段没完成的听写，已放进历史。";
 "Copied. Kay needs Accessibility permission to paste for you." = "已复制。Kay 需要辅助功能权限才能自动粘贴。";
+
+/* Correction */
+"Correction" = "纠错";
+"Fix Misheard Words" = "纠正识别错误";
+"Add a DeepSeek API key below to turn this on." = "在下方填写 DeepSeek API Key 后生效。";
+"After recognition, DeepSeek V4.1 Flash corrects words the speech service misheard, such as product names, without rewording what you said. It adds about half a second. If DeepSeek doesn't answer within 3 seconds, Kay pastes what it heard." = "识别完成后，由 DeepSeek V4.1 Flash 改正语音服务听错的词（比如产品名），不改你的说法。每次多花大约半秒。DeepSeek 3 秒内没有回应时，Kay 直接粘贴识别结果。";
+"DeepSeek API Key" = "DeepSeek API Key";
+"DeepSeek Platform → API Keys. DeepSeek bills you at its standard rates." = "DeepSeek 开放平台 → API Keys。费用由 DeepSeek 按标准价格收取。";
+"DeepSeek Platform" = "DeepSeek 开放平台";
+"Paste your DeepSeek API Key" = "粘贴 DeepSeek API Key";
+"It stays valid in DeepSeek. If it was exposed, revoke it on the DeepSeek Platform." = "它在 DeepSeek 中仍然有效。如果已经泄露，请到 DeepSeek 开放平台吊销。";
+"Couldn't reach DeepSeek." = "无法连接 DeepSeek。";
+"DeepSeek rejected this key." = "DeepSeek 拒绝了这个 Key。";
+"The DeepSeek account has run out of balance." = "DeepSeek 账户余额不足。";
+"DeepSeek returned an error: %@" = "DeepSeek 返回错误：%@";

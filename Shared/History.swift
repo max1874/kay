@@ -12,6 +12,10 @@ struct HistoryEntry: Codable, Identifiable, Equatable {
     var engine: String? = nil
     /// The microphone it was recorded from, by name; nil before 1.8 and for dictations recovered at launch.
     var microphone: String? = nil
+    /// What the recognizer heard, when correction after recognition changed it; `text` is what was pasted.
+    var heard: String? = nil
+    /// How long correction took, when it ran; part of `latencyMs`.
+    var correctionMs: Int? = nil
 
     /// Characters that were actually spoken: no spaces or punctuation.
     var spokenCharacters: Int {
