@@ -68,8 +68,9 @@ microphone it came from (`microphone`).
 - **Correction.** Before pasting, DeepSeek V4.1 Flash (your own key, **Settings → Correction**) fixes words the
   speech service misheard, such as product names, without rewording; on by default, and a no-op until a key is
   added. On 22 of Max's dictations (2026-10-12) it took Doubao from 5.5% to 3.7–4.8% CER without changing a correct
-  word into a wrong one; Qwen models with the same prompt made things worse. It adds about 0.6 s; with no answer
-  in 3 s, an error, or an answer that looks like a reply instead of a correction, Kay pastes what it heard. History
+  word into a wrong one; Qwen models with the same prompt made things worse. It adds about half a second (median
+  0.6 s). Kay pastes what it heard when the whole request takes over 3 s, fails, or comes back more than a third
+  different (a reply rather than a correction), and for dictations under 6 characters. History
   keeps the recognizer's text in `heard` when correction changed it.
 - **History.** Every dictation — and the reason, when one fails — is kept on this Mac in
   `~/Library/Application Support/Kay/history.json` (last 1000). Click one to copy it again.

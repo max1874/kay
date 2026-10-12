@@ -20,7 +20,22 @@ final class Correction: ObservableObject {
     static let consoleURL = URL(string: "https://platform.deepseek.com/usage")!
     /// The slowest of 66 calls on 2026-10-12 took 1.15 s.
     private static let timeout: TimeInterval = 3
+    /// Below this many spoken characters there is little to correct and a reply ("好的，已提交" for "提交吧")
+    /// can't be told from a correction by length, so the text is pasted as heard.
+    private static let minimumLength = 6
     private static let endpoint = URL(string: "https://api.deepseek.com/chat/completions")!
+
+    /// `timeoutInterval` on a request is an idle timeout, and DeepSeek keeps a busy request alive by sending
+    /// blank lines for up to 10 minutes (api-docs.deepseek.com, Rate Limit). The resource timeout caps the
+    /// whole request, so a dictation waits `timeout` at most.
+    private static func session(timeout: TimeInterval) -> URLSession {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.timeoutIntervalForRequest = timeout
+        configuration.timeoutIntervalForResource = timeout
+        return URLSession(configuration: configuration)
+    }
+    private static let dictationSession = session(timeout: timeout)
+    private static let testSession = session(timeout: 15)
 
     private static let prompt = """
     你是语音输入法的校对器。输入是一段语音识别结果，说话的是一位软件开发者，常在对 AI 编程助手说话，\
@@ -51,9 +66,9 @@ final class Correction: ObservableObject {
 
     /// The corrected text, or nil to paste `text` as heard. Calls back on the main queue.
     func correct(_ text: String, completion: @escaping (_ corrected: String?, _ ms: Int?) -> Void) {
-        guard Self.isEnabled, let key else { return completion(nil, nil) }
+        guard Self.isEnabled, let key, Self.spoken(text).count >= Self.minimumLength else { return completion(nil, nil) }
         let started = Date()
-        Self.send(key: key, text: text) { [weak self] result in
+        Self.send(key: key, text: text, over: Self.dictationSession) { [weak self] result in
             let ms = Int(Date().timeIntervalSince(started) * 1000)
             DispatchQueue.main.async {
                 switch result {
@@ -66,24 +81,44 @@ final class Correction: ObservableObject {
                     completion(corrected, ms)
                 case .failure(let error):
                     log.error("correction failed after \(ms) ms: \(error.localizedDescription)\((error as? KayError)?.detail.map { " [\($0)]" } ?? "")")
-                    if let error = error as? KayError, error.isAuthFailure { self?.status = .failed(error.message) }
+                    // A key that stopped working (rejected, or out of balance) shows as Failed in Settings.
+                    if let error = error as? KayError, error.isAuthFailure || error.httpStatus == 402 {
+                        self?.status = .failed(error.message)
+                    }
                     completion(nil, ms)
                 }
             }
         }
     }
 
-    /// A correction changes a few words; an answer much shorter or longer is the model replying to what was
-    /// said, or dropping it, and is not pasted.
+    /// A correction changes a few words. An answer further than a third of the text away (by edit distance over
+    /// the spoken characters) is the model replying, prefixing ("改正后的文本：") or dropping, and is not pasted.
+    /// On the 2026-10-12 eval the largest accepted change was 9 of 77 (千万 → 通义千问, Casual → Cursor) and
+    /// 6 of 21 (Live 图 → Live Photo, which Max judged right).
     private static func accept(_ answer: String, for text: String) -> String? {
         let corrected = answer.replacingOccurrences(of: "<transcript>", with: "")
             .replacingOccurrences(of: "</transcript>", with: "")
             .trimmingCharacters(in: .whitespacesAndNewlines)
-        let skip = CharacterSet.whitespacesAndNewlines.union(.punctuationCharacters)
-        func spoken(_ s: String) -> Int { s.unicodeScalars.filter { !skip.contains($0) }.count }
         let before = spoken(text), after = spoken(corrected)
-        guard after > 0, Double(after) >= Double(before) * 0.7, Double(after) <= Double(before) * 1.4 + 4 else { return nil }
+        guard !after.isEmpty, distance(before, after) <= before.count / 3 else { return nil }
         return corrected
+    }
+
+    private static func spoken(_ s: String) -> [Unicode.Scalar] {
+        let skip = CharacterSet.whitespacesAndNewlines.union(.punctuationCharacters).union(.symbols)
+        return s.lowercased().unicodeScalars.filter { !skip.contains($0) }
+    }
+
+    private static func distance(_ a: [Unicode.Scalar], _ b: [Unicode.Scalar]) -> Int {
+        var previous = Array(0...b.count)
+        for (i, x) in a.enumerated() {
+            var current = [i + 1]
+            for (j, y) in b.enumerated() {
+                current.append(min(previous[j + 1] + 1, current[j] + 1, previous[j] + (x == y ? 0 : 1)))
+            }
+            previous = current
+        }
+        return previous[b.count]
     }
 
     @MainActor
@@ -98,7 +133,7 @@ final class Correction: ObservableObject {
         status = .testing
         let started = Date()
         let result = await withCheckedContinuation { continuation in
-            Self.send(key: candidate, text: "你好") { continuation.resume(returning: $0) }
+            Self.send(key: candidate, text: "你好", over: Self.testSession) { continuation.resume(returning: $0) }
         }
         // Removed while the test ran: the removal wins.
         guard key == stored else {
@@ -133,8 +168,9 @@ final class Correction: ObservableObject {
         status = .notSet
     }
 
-    private static func send(key: String, text: String, completion: @escaping (Result<String, Error>) -> Void) {
-        var request = URLRequest(url: endpoint, timeoutInterval: timeout)
+    private static func send(key: String, text: String, over session: URLSession,
+                             completion: @escaping (Result<String, Error>) -> Void) {
+        var request = URLRequest(url: endpoint)
         request.httpMethod = "POST"
         request.setValue("Bearer " + key, forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -149,7 +185,7 @@ final class Correction: ObservableObject {
             ],
         ]
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        session.dataTask(with: request) { data, response, error in
             let status = (response as? HTTPURLResponse)?.statusCode
             if let error {
                 return completion(.failure(KayError(message: String(localized: "Couldn't reach DeepSeek."),

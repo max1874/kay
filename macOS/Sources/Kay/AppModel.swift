@@ -111,6 +111,8 @@ final class AppModel: ObservableObject {
         if speech.hasKey {
             Task { await speech.test(newKey: nil) }
         }
+        // Reads its key from the Keychain now, not during the first dictation.
+        _ = Correction.shared
         recoverLeftovers()
     }
 
@@ -329,6 +331,7 @@ final class AppModel: ObservableObject {
         let releasedAt = Date()
         let engine = session.provider
         let microphone = recordingFrom
+        weak var dictation = session
         session.finish(lastChunk: rest, timeout: 10) { [weak self] result in
             DispatchQueue.main.async {
                 guard let self else { return }
@@ -341,8 +344,11 @@ final class AppModel: ObservableObject {
                 let text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
                 guard !text.isEmpty else { return deliver(result) }
                 Correction.shared.correct(text) { corrected, ms in
-                    // Cancelled meanwhile, like a session cancelled before its result.
-                    guard self.state == .processing else { return }
+                    // Cancelled meanwhile, like a session cancelled before its result. By identity, not by state:
+                    // after a cancel the next dictation may be processing, and its audio and paste are its own.
+                    guard self.state == .processing, let current = self.session, current === dictation else {
+                        return log.notice("correction for a cancelled dictation dropped")
+                    }
                     guard let corrected, corrected != text else { return deliver(result, correctionMs: ms) }
                     deliver(.success(corrected), heard: text, correctionMs: ms)
                 }
