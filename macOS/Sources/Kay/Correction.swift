@@ -70,10 +70,12 @@ final class Correction: ObservableObject {
         let started = Date()
         Self.send(key: key, text: text, over: Self.dictationSession) { [weak self] result in
             let ms = Int(Date().timeIntervalSince(started) * 1000)
+            // On URLSession's queue: a long dictation is a million comparisons, not for the main thread.
+            let accepted = (try? result.get()).flatMap { Self.accept($0, for: text) }
             DispatchQueue.main.async {
                 switch result {
                 case .success(let answer):
-                    guard let corrected = Self.accept(answer, for: text) else {
+                    guard let corrected = accepted else {
                         log.notice("correction discarded after \(ms) ms: \(answer.count) chars for \(text.count)")
                         return completion(nil, ms)
                     }
