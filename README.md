@@ -9,6 +9,10 @@ It streams your voice to
 pastes the finalized text when you release it. It uses **your own API key**: there is no Kay server, and no
 subscription.
 
+<a href="https://max1874.com/kay/"><img src="docs/demo.en.gif" width="600" alt="Hold fn and speak; release, and the text is pasted at the cursor"></a>
+
+<sub>A recorded demo from [max1874.com/kay](https://max1874.com/kay/), where you can try it yourself.</sub>
+
 [中文说明](#中文说明)
 
 ## Install
@@ -160,6 +164,10 @@ release, then the appcast that installed copies update from — and installs it 
 ## 中文说明
 
 Kay 是一个开源的 macOS 按住说话听写工具。按住 **fn** 说话，松开后文字直接出现在光标处，任何 app 里都可以。
+
+<a href="https://max1874.com/kay/"><img src="docs/demo.zh.gif" width="600" alt="按住 fn 说话，松开后文字贴到光标处"></a>
+
+<sub>动图录自 [max1874.com/kay](https://max1874.com/kay/)，那里可以亲手试。</sub>
 
 按住期间把语音实时推给阿里云的**千问语音 3.1 流式识别**或火山引擎的
 **豆包流式语音识别 2.0**（二选一），松开后将最终文本粘贴到光标处。使用**你自己的 API Key**，没有 Kay 服务器，也没有订阅。
