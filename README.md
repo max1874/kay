@@ -1,8 +1,9 @@
 # Kay
 
-Hold **fn** and speak. Let go, and the text appears where your cursor is, in any app.
+Kay is an open-source push-to-talk dictation app for macOS. Hold **fn** and speak. Let go, and the text appears
+where your cursor is, in any app.
 
-Kay is a small push-to-talk dictation app for macOS. It streams your voice to
+It streams your voice to
 [Qwen Audio 3.1 ASR](https://help.aliyun.com/zh/model-studio/qwen-audio-3-1-asr-flash-streaming)
 (Alibaba Cloud) or Doubao Streaming ASR 2.0 (Volcengine), whichever you pick, while you hold the key and
 pastes the finalized text when you release it. It uses **your own API key**: there is no Kay server, and no
@@ -94,6 +95,30 @@ the Alibaba Cloud workspace you configure (`*.maas.aliyuncs.com` or `dashscope.a
 you explicitly send it again for recognition. With a DeepSeek key added, the recognized text (not the audio) goes
 to `api.deepseek.com` for correction.
 
+## FAQ
+
+**How is Kay different from the Dictation built into macOS?** macOS Dictation is built in and needs no key. Kay
+records for exactly as long as you hold the key and pastes when you let go; recognition is done by the service you
+pick (Qwen or Doubao) on your own account; DeepSeek can fix misheard names before pasting; and every dictation is
+kept in a searchable History on your Mac.
+
+**Which speech recognition does it use, and what does it cost?** `qwen-audio-3.1-asr-flash-streaming` (Alibaba Cloud
+Model Studio) or Doubao Streaming ASR 2.0 (Volcengine). Kay is free; the service bills you directly at its standard
+rates (Alibaba Cloud by input/output tokens, Volcengine by the hourly or concurrent resource you bought). DeepSeek
+correction is optional and billed by DeepSeek.
+
+**Where does my audio go?** Only to the speech service you picked. Kay records while you hold the key; a dictation
+cut off by a crash or quit is sent again at the next launch. There is no Kay server. See [Privacy](#privacy).
+
+**Will Gatekeeper block it?** No. Releases are signed with a Developer ID and notarized. Kay runs on Apple silicon
+only.
+
+**How do I uninstall it?** Remove each key in Settings (Remove Key…), quit Kay and move it to the Trash, then delete
+`~/Library/Application Support/Kay`, `~/Library/Logs/Kay` and `~/Library/Preferences/com.max1874.kay.plist`, and
+remove Kay under Microphone and Accessibility in System Settings → Privacy & Security.
+
+More at [max1874.com/kay](https://max1874.com/kay/).
+
 ## Build from source
 
 ```
@@ -134,9 +159,9 @@ release, then the appcast that installed copies update from — and installs it 
 
 ## 中文说明
 
-按住 **fn** 说话，松开后文字直接出现在光标处，任何 app 里都可以。
+Kay 是一个开源的 macOS 按住说话听写工具。按住 **fn** 说话，松开后文字直接出现在光标处，任何 app 里都可以。
 
-Kay 是一个 macOS 按住说话的听写工具：按住期间把语音实时推给阿里云的**千问语音 3.1 流式识别**或火山引擎的
+按住期间把语音实时推给阿里云的**千问语音 3.1 流式识别**或火山引擎的
 **豆包流式语音识别 2.0**（二选一），松开后将最终文本粘贴到光标处。使用**你自己的 API Key**，没有 Kay 服务器，也没有订阅。
 
 **安装**：从 [Releases](https://github.com/max1874/kay/releases) 下载 DMG 拖进「应用程序」（已签名公证，需要
@@ -156,6 +181,16 @@ Apple 芯片的 macOS 26）。1.5.0 起自动更新：每天检查一次，后�
 
 **隐私**：Key 只存在 macOS 钥匙串；音频从你的 Mac 直接发到你选的服务（阿里云或火山引擎），不经过其他地方。填了 DeepSeek Key 时，识别出的文字（不是音频）会发给 DeepSeek 纠错（「设置 → 纠错」，默认开启）。
 听写历史只保存在本机，可在「设置 → 通用」里全部清除。
+
+**常见问题**
+
+- **和 macOS 自带的听写有什么不同？** 系统听写是自带的，不需要 Key。Kay 按住键说多久就录多久，松开才粘贴；识别由你选的服务（千问或豆包）在你自己的账号下完成；可以用 DeepSeek 在粘贴前改正听错的专名；每次听写都存在本机可搜索的历史里。
+- **用的是哪个语音识别？要花多少钱？** 阿里云百炼的 `qwen-audio-3.1-asr-flash-streaming`，或火山引擎的豆包流式语音识别 2.0。Kay 免费；识别费用由服务商按标准价格直接向你收取（阿里云按输入、输出 Token，豆包按你买的小时版或并发版资源）。DeepSeek 纠错可选，由 DeepSeek 收费。
+- **录音会发到哪里？** 只发给你选的语音服务。只在按住快捷键时录音；听写中途 Kay 崩溃或被退出的，下次启动时会重新发送那段音频。没有 Kay 服务器。
+- **会被 Gatekeeper 拦住吗？** 不会，发布版用 Developer ID 签名并经过公证。只支持 Apple 芯片。
+- **怎么卸载？** 在设置里对每个服务点「移除 Key…」，退出 Kay 并移到废纸篓，再删除 `~/Library/Application Support/Kay`、`~/Library/Logs/Kay` 和 `~/Library/Preferences/com.max1874.kay.plist`，并在「系统设置 → 隐私与安全性」的「麦克风」和「辅助功能」里移除 Kay。
+
+更多见 [max1874.com/kay](https://max1874.com/kay/)。
 
 **iPhone 版**：`iOS/` 是一次主动叫停的实验。用操作按钮 / 控制中心触发录音、灵动岛显示状态，这些都跑通了；
 但 iOS 只允许输入法往别的 app 里打字，也不允许后台 app 写剪贴板（iOS 27 实测，2026-09-30），每次都要多一步
