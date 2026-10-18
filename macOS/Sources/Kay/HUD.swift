@@ -118,7 +118,7 @@ final class HUDState: ObservableObject {
     }
 
     /// Recent input levels, oldest first: the newest drives the middle bar.
-    static let levelCount = 5
+    static let levelCount = 6
 
     @Published var mode = Mode.idle
     @Published var levels: [Float] = Array(repeating: 0, count: levelCount)
@@ -128,9 +128,9 @@ private struct HUDView: View {
     @ObservedObject var state: HUDState
 
     /// Listening and Recognizing are one pill holding the same bars; a message gets a rounded rectangle
-    /// that fits two lines.
-    static let pillHeight: CGFloat = 32
-    static let messageHeight: CGFloat = 36
+    /// that fits two lines. 120 × 40 since 1.14.0: at 79 × 32 Max found it too small (2026-10-18).
+    static let pillHeight: CGFloat = 40
+    static let messageHeight: CGFloat = 40
 
     private var showsMessage: Bool {
         if case .message = state.mode { return true }
@@ -158,7 +158,7 @@ private struct HUDView: View {
                     .frame(maxWidth: 400, alignment: .leading)
             }
         }
-        .padding(.horizontal, showsMessage ? 16 : 14)
+        .padding(.horizontal, showsMessage ? 16 : 18)
         .padding(.vertical, showsMessage ? 9 : 0)
         .frame(minHeight: showsMessage ? Self.messageHeight : Self.pillHeight)
         // The same near-black on any wallpaper or window, in light and dark mode: glass took its tone from
@@ -173,7 +173,7 @@ private struct HUDView: View {
 /// The bars, listening or working.
 ///
 /// Listening: mirrored about the center, the newest level in the middle bar and each older one a bar further
-/// out, 15 % lower and a little fainter, so speech ripples outward. Working (Recognizing): the same bars stop
+/// out, 12 % lower and 10 % fainter, so speech ripples outward. Working (Recognizing): the same bars stop
 /// following the voice and swell slowly on their own, the middle first, until the HUD hides.
 ///
 /// Layers, not SwiftUI shapes: the swell runs forever, and a running SwiftUI animation asks the hosting view for
@@ -197,13 +197,13 @@ private struct Waveform: NSViewRepresentable {
 }
 
 private final class WaveformView: NSView {
-    static let barWidth: CGFloat = 3
-    static let spacing: CGFloat = 3
+    static let barWidth: CGFloat = 4
+    static let spacing: CGFloat = 4
     static let barCount = HUDState.levelCount * 2 - 1
-    static let size = CGSize(width: CGFloat(barCount) * (barWidth + spacing) - spacing, height: 16)
-    /// The swell's range, inside the 16 pt the voice can reach.
-    static let restHeight: CGFloat = 4
-    static let swellHeight: CGFloat = 10
+    static let size = CGSize(width: CGFloat(barCount) * (barWidth + spacing) - spacing, height: 22)
+    /// The swell's range, inside the 22 pt the voice can reach.
+    static let restHeight: CGFloat = 5
+    static let swellHeight: CGFloat = 14
 
     private var bars: [CALayer] = []
     private var working = false
@@ -216,7 +216,7 @@ private final class WaveformView: NSView {
             // The pill is near-black in every appearance, so the bars are plain white.
             bar.backgroundColor = NSColor.white.cgColor
             bar.cornerRadius = Self.barWidth / 2
-            bar.opacity = 1 - 0.12 * Float(Self.distance(index))
+            bar.opacity = 1 - 0.1 * Float(Self.distance(index))
             bar.bounds.size = CGSize(width: Self.barWidth, height: Self.barWidth)
             layer?.addSublayer(bar)
             bars.append(bar)
@@ -244,7 +244,7 @@ private final class WaveformView: NSView {
         withoutImplicitAnimation {
             for (index, bar) in bars.enumerated() {
                 let distance = Self.distance(index)
-                let level = levels[levels.count - 1 - distance] * (1 - 0.15 * Float(distance))
+                let level = levels[levels.count - 1 - distance] * (1 - 0.12 * Float(distance))
                 // Explicit, from where the bar is on screen: levels arrive every 50 ms, sooner than the 80 ms
                 // glide, and an implicit action would restart from the last target and jump.
                 let glide = CABasicAnimation(keyPath: "bounds.size.height")
