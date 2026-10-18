@@ -5,7 +5,8 @@ import SwiftUI
 /// about to land in whatever app you are typing in, and that app has to stay frontmost.
 ///
 /// The look is Max's pick: 1.11–1.14 replaced it with a dark pill of bars alone (no dot, no clock, no
-/// spinner), and after trying it at two sizes he asked for this capsule back (1.15.0, 2026-10-18).
+/// spinner), and after trying it at two sizes he asked for this capsule back (1.15.0, 2026-10-18). Back in
+/// it, he took out the red dot and the clock (1.15.1): listening is the bars alone.
 ///
 /// Failure class, read before changing anything here: resizing this panel while its SwiftUI content is
 /// changing makes AppKit's Update Constraints pass loop — the hosting view's frame moves, SwiftUI asks for
@@ -24,9 +25,9 @@ final class HUD {
     private var panel: NSPanel?
     private var hideWork: DispatchWorkItem?
 
-    func listen(since start: Date) {
+    func listen() {
         content.levels = Array(repeating: 0, count: HUDState.barCount)
-        present(.listening(since: start))
+        present(.listening)
     }
 
     func level(_ value: Float) {
@@ -57,7 +58,7 @@ final class HUD {
             guard panel.alphaValue == 0 else { return }
             panel.orderOut(nil)
             // An ordered-out panel keeps its views running: left on .recognizing, the spinner went on
-            // animating after every dictation (≈15 % CPU, 1.4.2); left on .listening, the clock ticked.
+            // animating after every dictation (≈15 % CPU, 1.4.2).
             content.mode = .idle
         }
     }
@@ -115,7 +116,7 @@ final class HUDState: ObservableObject {
     enum Mode: Equatable {
         /// Hidden: nothing that animates.
         case idle
-        case listening(since: Date)
+        case listening
         case recognizing
         case message(String, symbol: String)
     }
@@ -136,18 +137,9 @@ private struct HUDView: View {
             switch state.mode {
             case .idle:
                 EmptyView()
-            case .listening(let since):
-                Circle()
-                    .fill(Color.red)
-                    .frame(width: 9, height: 9)
+            case .listening:
                 LevelBars(levels: state.levels, tint: .primary, barWidth: 3, spacing: 2.5)
                     .frame(width: CGFloat(HUDState.barCount) * 5.5, height: 18)
-                TimelineView(.periodic(from: since, by: 1)) { context in
-                    Text(verbatim: Format.clock(context.date.timeIntervalSince(since)))
-                        .font(.system(size: 13, weight: .medium).monospacedDigit())
-                        .foregroundStyle(.secondary)
-                        .frame(width: 36, alignment: .leading)  // the clock ticking must not resize the capsule
-                }
             case .recognizing:
                 Spinner()
                 Text("Recognizing…").font(.system(size: 13, weight: .medium))
