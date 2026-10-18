@@ -1,8 +1,11 @@
 import AppKit
 import SwiftUI
 
-/// The dark pill above the Dock while you dictate. It never takes focus or clicks: the text is
+/// The glass capsule above the Dock while you dictate. It never takes focus or clicks: the text is
 /// about to land in whatever app you are typing in, and that app has to stay frontmost.
+///
+/// The look is Max's pick: 1.11–1.14 replaced it with a dark pill of bars alone (no dot, no clock, no
+/// spinner), and after trying it at two sizes he asked for this capsule back (1.15.0, 2026-10-18).
 ///
 /// Failure class, read before changing anything here: resizing this panel while its SwiftUI content is
 /// changing makes AppKit's Update Constraints pass loop — the hosting view's frame moves, SwiftUI asks for
@@ -21,9 +24,9 @@ final class HUD {
     private var panel: NSPanel?
     private var hideWork: DispatchWorkItem?
 
-    func listen() {
-        content.levels = Array(repeating: 0, count: HUDState.levelCount)
-        present(.listening)
+    func listen(since start: Date) {
+        content.levels = Array(repeating: 0, count: HUDState.barCount)
+        present(.listening(since: start))
     }
 
     func level(_ value: Float) {
@@ -54,7 +57,7 @@ final class HUD {
             guard panel.alphaValue == 0 else { return }
             panel.orderOut(nil)
             // An ordered-out panel keeps its views running: left on .recognizing, the spinner went on
-            // animating after every dictation (≈15 % CPU, 1.4.2).
+            // animating after every dictation (≈15 % CPU, 1.4.2); left on .listening, the clock ticked.
             content.mode = .idle
         }
     }
@@ -112,41 +115,42 @@ final class HUDState: ObservableObject {
     enum Mode: Equatable {
         /// Hidden: nothing that animates.
         case idle
-        case listening
+        case listening(since: Date)
         case recognizing
         case message(String, symbol: String)
     }
 
-    /// Recent input levels, oldest first: the newest drives the middle bar.
-    static let levelCount = 6
+    static let barCount = 14
 
     @Published var mode = Mode.idle
-    @Published var levels: [Float] = Array(repeating: 0, count: levelCount)
+    @Published var levels: [Float] = Array(repeating: 0, count: barCount)
 }
 
 private struct HUDView: View {
     @ObservedObject var state: HUDState
 
-    /// Listening and Recognizing are one pill holding the same bars; a message gets a rounded rectangle
-    /// that fits two lines. 120 × 40 since 1.14.0: at 79 × 32 Max found it too small (2026-10-18).
-    static let pillHeight: CGFloat = 40
-    static let messageHeight: CGFloat = 40
-
-    private var showsMessage: Bool {
-        if case .message = state.mode { return true }
-        return false
-    }
+    static let height: CGFloat = 44
 
     var body: some View {
-        let shape = RoundedRectangle(cornerRadius: showsMessage ? 18 : Self.pillHeight / 2, style: .continuous)
-        HStack(spacing: 8) {
+        HStack(spacing: 10) {
             switch state.mode {
             case .idle:
                 EmptyView()
-            // One case for both, so the bars are the same view when Recognizing takes over: they stop
-            // following the voice and swell on their own, in place.
-            case .listening, .recognizing:
-                Waveform(levels: state.levels, working: state.mode == .recognizing)
+            case .listening(let since):
+                Circle()
+                    .fill(Color.red)
+                    .frame(width: 9, height: 9)
+                LevelBars(levels: state.levels, tint: .primary, barWidth: 3, spacing: 2.5)
+                    .frame(width: CGFloat(HUDState.barCount) * 5.5, height: 18)
+                TimelineView(.periodic(from: since, by: 1)) { context in
+                    Text(verbatim: Format.clock(context.date.timeIntervalSince(since)))
+                        .font(.system(size: 13, weight: .medium).monospacedDigit())
+                        .foregroundStyle(.secondary)
+                        .frame(width: 36, alignment: .leading)  // the clock ticking must not resize the capsule
+                }
+            case .recognizing:
+                Spinner()
+                Text("Recognizing…").font(.system(size: 13, weight: .medium))
             case .message(let text, let symbol):
                 Image(systemName: symbol)
                     .font(.system(size: 13, weight: .semibold))
@@ -158,158 +162,103 @@ private struct HUDView: View {
                     .frame(maxWidth: 400, alignment: .leading)
             }
         }
-        .padding(.horizontal, showsMessage ? 16 : 18)
-        .padding(.vertical, showsMessage ? 9 : 0)
-        .frame(minHeight: showsMessage ? Self.messageHeight : Self.pillHeight)
-        // The same near-black on any wallpaper or window, in light and dark mode: glass took its tone from
-        // what was behind it, and over a dark window in light mode the bars came out grey (1.11.0).
-        .background(shape.fill(Color(white: 0.07).opacity(0.88)))
-        .overlay(shape.strokeBorder(Color.white.opacity(0.14), lineWidth: 0.5))
-        .shadow(color: .black.opacity(0.22), radius: 7, y: 3)
-        .environment(\.colorScheme, .dark)
+        .padding(.horizontal, 18)
+        .frame(minHeight: Self.height)
+        .glassEffect(.regular, in: .capsule)
+        .shadow(color: .black.opacity(0.18), radius: 8, y: 2)
     }
 }
 
-/// The bars, listening or working.
+/// The Recognizing spinner: an arc that Core Animation turns, exactly its 14 pt frame.
 ///
-/// Listening: mirrored about the center, the newest level in the middle bar and each older one a bar further
-/// out, 12 % lower and 10 % fainter, so speech ripples outward. Working (Recognizing): the same bars stop
-/// following the voice and swell slowly on their own, the middle first, until the HUD hides.
-///
-/// Layers, not SwiftUI shapes: the swell runs forever, and a running SwiftUI animation asks the hosting view for
-/// another update every frame. When that landed in the constraints pass of a resizing panel, AppKit counted
-/// each request as one more pass (1.4.4, see `HUD`). A layer animation runs in the render server and never
-/// touches the view graph. Not `ProgressView` either, for the spinner this replaced: an `NSProgressIndicator`
-/// draws off its layout box (≤1.4.3).
-private struct Waveform: NSViewRepresentable {
-    let levels: [Float]
-    let working: Bool
+/// Not `ProgressView`: that is an `NSProgressIndicator` whose drawing doesn't line up with its layout box,
+/// so the circle sat off center (≤1.4.3). Not a SwiftUI `repeatForever` animation either: a running SwiftUI
+/// animation asks the hosting view for another update every frame, and when that landed in the constraints
+/// pass of a resizing panel, AppKit counted each request as one more pass (see `HUD`). A layer animation runs
+/// in the render server and never touches the view graph.
+private struct Spinner: NSViewRepresentable {
+    func makeNSView(context: Context) -> SpinnerView { SpinnerView() }
+    func updateNSView(_ view: SpinnerView, context: Context) {}
 
-    func makeNSView(context: Context) -> WaveformView { WaveformView() }
-
-    func updateNSView(_ view: WaveformView, context: Context) {
-        if working { view.work() } else { view.show(levels) }
-    }
-
-    func sizeThatFits(_ proposal: ProposedViewSize, nsView: WaveformView, context: Context) -> CGSize? {
-        WaveformView.size
+    func sizeThatFits(_ proposal: ProposedViewSize, nsView: SpinnerView, context: Context) -> CGSize? {
+        CGSize(width: 14, height: 14)
     }
 }
 
-private final class WaveformView: NSView {
-    static let barWidth: CGFloat = 3
-    static let spacing: CGFloat = 5
-    static let barCount = HUDState.levelCount * 2 - 1
-    static let size = CGSize(width: CGFloat(barCount) * (barWidth + spacing) - spacing, height: 22)
-    /// The swell's range, inside the 22 pt the voice can reach.
-    static let restHeight: CGFloat = 5
-    static let swellHeight: CGFloat = 14
-
-    private var bars: [CALayer] = []
-    private var working = false
+private final class SpinnerView: NSView {
+    private let arc = CAShapeLayer()
 
     override init(frame: NSRect) {
         super.init(frame: frame)
         wantsLayer = true
-        for index in 0..<Self.barCount {
-            let bar = CALayer()
-            // The pill is near-black in every appearance, so the bars are plain white.
-            bar.backgroundColor = NSColor.white.cgColor
-            bar.cornerRadius = Self.barWidth / 2
-            bar.opacity = 1 - 0.1 * Float(Self.distance(index))
-            bar.bounds.size = CGSize(width: Self.barWidth, height: Self.barWidth)
-            layer?.addSublayer(bar)
-            bars.append(bar)
-        }
+        arc.fillColor = nil
+        arc.lineWidth = 2
+        arc.lineCap = .round
+        arc.strokeEnd = 0.72
+        layer?.addSublayer(arc)
     }
 
     required init?(coder: NSCoder) { fatalError("not used from a nib") }
 
-    private static func distance(_ index: Int) -> Int { abs(index - (HUDState.levelCount - 1)) }
-
     override func setFrameSize(_ newSize: NSSize) {
         super.setFrameSize(newSize)
         withoutImplicitAnimation {
-            for (index, bar) in bars.enumerated() {
-                // Heights change about the default anchor point, so each bar grows up and down from the middle.
-                bar.position = CGPoint(x: CGFloat(index) * (Self.barWidth + Self.spacing) + Self.barWidth / 2,
-                                       y: bounds.midY)
-            }
+            arc.frame = bounds  // turns about its center: the default anchor point
+            arc.path = CGPath(ellipseIn: bounds.insetBy(dx: arc.lineWidth / 2, dy: arc.lineWidth / 2),
+                              transform: nil)
         }
     }
 
-    func show(_ levels: [Float]) {
-        working = false
-        swell()
-        withoutImplicitAnimation {
-            for (index, bar) in bars.enumerated() {
-                let distance = Self.distance(index)
-                let level = levels[levels.count - 1 - distance] * (1 - 0.12 * Float(distance))
-                // Explicit, from where the bar is on screen: levels arrive every 50 ms, sooner than the 80 ms
-                // glide, and an implicit action would restart from the last target and jump.
-                let glide = CABasicAnimation(keyPath: "bounds.size.height")
-                glide.fromValue = bar.presentation()?.bounds.size.height ?? bar.bounds.size.height
-                glide.duration = 0.08
-                glide.timingFunction = CAMediaTimingFunction(name: .linear)
-                bar.bounds.size.height = max(Self.barWidth, CGFloat(level) * Self.size.height)
-                bar.add(glide, forKey: "glide")
-            }
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        effectiveAppearance.performAsCurrentDrawingAppearance {
+            withoutImplicitAnimation { arc.strokeColor = NSColor.secondaryLabelColor.cgColor }
         }
     }
 
-    func work() {
-        working = true
-        swell()
-    }
-
-    /// Starts or stops the swell to match `working`, and only while the view is in a window: SwiftUI may ask
-    /// for Recognizing before it has put a new view on screen, and a view out of a window must not animate.
-    private func swell() {
-        guard working, window != nil else {
-            bars.forEach { $0.removeAnimation(forKey: "swell") }
-            return
-        }
-        guard bars.first?.animation(forKey: "swell") == nil else { return }
-        let now = CACurrentMediaTime()
-        withoutImplicitAnimation {
-            for (index, bar) in bars.enumerated() {
-                bar.removeAnimation(forKey: "glide")
-                bar.bounds.size.height = Self.restHeight
-                let height = CABasicAnimation(keyPath: "bounds.size.height")
-                height.fromValue = Self.restHeight
-                height.toValue = Self.swellHeight
-                height.duration = 0.9
-                let fade = CABasicAnimation(keyPath: "opacity")
-                fade.fromValue = bar.opacity * 0.55
-                fade.toValue = bar.opacity
-                fade.duration = 0.9
-                let group = CAAnimationGroup()
-                group.animations = [height, fade]
-                group.duration = 0.9
-                group.autoreverses = true
-                group.repeatCount = .infinity
-                group.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-                // The middle bar leads; each one further out follows 0.12 s later, held at rest until then.
-                group.beginTime = bar.convertTime(now, from: nil) + 0.12 * Double(Self.distance(index))
-                group.fillMode = .backwards
-                bar.add(group, forKey: "swell")
-            }
-        }
-    }
-
-    // The view leaves the window when the HUD goes back to .idle, and nothing animates after that; a view that
-    // arrives in the window already Recognizing starts its swell here.
-    override func viewDidMoveToWindow() {
-        super.viewDidMoveToWindow()
-        swell()
-    }
-
-    /// The bars are plain sublayers, so every property change would otherwise animate over 0.25 s.
+    /// `arc` is a plain sublayer, so every property change would otherwise fade in over 0.25 s.
     private func withoutImplicitAnimation(_ change: () -> Void) {
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         change()
         CATransaction.commit()
     }
+
+    // Turning only while on screen: the view leaves the window when the HUD goes back to .idle.
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        guard window != nil else {
+            arc.removeAllAnimations()
+            return
+        }
+        viewDidChangeEffectiveAppearance()
+        let turn = CABasicAnimation(keyPath: "transform.rotation.z")
+        turn.fromValue = 0
+        turn.toValue = -2 * Double.pi  // clockwise: the layer's y axis points up
+        turn.duration = 0.8
+        turn.repeatCount = .infinity
+        arc.add(turn, forKey: "turn")
+    }
 }
 
+/// Bars for recent input levels, newest on the right.
+private struct LevelBars: View {
+    let levels: [Float]
+    var tint: Color = .red
+    var barWidth: CGFloat = 4
+    var spacing: CGFloat = 3
+
+    var body: some View {
+        GeometryReader { geo in
+            HStack(alignment: .center, spacing: spacing) {
+                ForEach(Array(levels.enumerated()), id: \.offset) { _, level in
+                    Capsule()
+                        .fill(tint)
+                        .frame(width: barWidth, height: max(barWidth, CGFloat(level) * geo.size.height))
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .trailing)
+            .animation(.linear(duration: 0.08), value: levels)
+        }
+    }
+}
