@@ -21,9 +21,9 @@ final class HUD {
     private var panel: NSPanel?
     private var hideWork: DispatchWorkItem?
 
-    func listen(since start: Date) {
-        content.levels = Array(repeating: 0, count: HUDState.barCount)
-        present(.listening(since: start))
+    func listen() {
+        content.levels = Array(repeating: 0, count: HUDState.levelCount)
+        present(.listening)
     }
 
     func level(_ value: Float) {
@@ -54,7 +54,7 @@ final class HUD {
             guard panel.alphaValue == 0 else { return }
             panel.orderOut(nil)
             // An ordered-out panel keeps its views running: left on .recognizing, the spinner went on
-            // animating after every dictation (≈15 % CPU, 1.4.2); left on .listening, the clock ticked.
+            // animating after every dictation (≈15 % CPU, 1.4.2).
             content.mode = .idle
         }
     }
@@ -112,42 +112,41 @@ final class HUDState: ObservableObject {
     enum Mode: Equatable {
         /// Hidden: nothing that animates.
         case idle
-        case listening(since: Date)
+        case listening
         case recognizing
         case message(String, symbol: String)
     }
 
-    static let barCount = 14
+    /// Recent input levels, oldest first: the newest drives the middle bar.
+    static let levelCount = 5
 
     @Published var mode = Mode.idle
-    @Published var levels: [Float] = Array(repeating: 0, count: barCount)
+    @Published var levels: [Float] = Array(repeating: 0, count: levelCount)
 }
 
 private struct HUDView: View {
     @ObservedObject var state: HUDState
 
-    static let height: CGFloat = 44
+    /// Listening and Recognizing show only the bars or the spinner, in a small pill. A message keeps the
+    /// taller capsule its two lines need.
+    static let pillHeight: CGFloat = 32
+    static let messageHeight: CGFloat = 44
+
+    private var showsMessage: Bool {
+        if case .message = state.mode { return true }
+        return false
+    }
 
     var body: some View {
         HStack(spacing: 10) {
             switch state.mode {
             case .idle:
                 EmptyView()
-            case .listening(let since):
-                Circle()
-                    .fill(Color.red)
-                    .frame(width: 9, height: 9)
-                LevelBars(levels: state.levels, tint: .primary, barWidth: 3, spacing: 2.5)
-                    .frame(width: CGFloat(HUDState.barCount) * 5.5, height: 18)
-                TimelineView(.periodic(from: since, by: 1)) { context in
-                    Text(verbatim: Format.clock(context.date.timeIntervalSince(since)))
-                        .font(.system(size: 13, weight: .medium).monospacedDigit())
-                        .foregroundStyle(.secondary)
-                        .frame(width: 36, alignment: .leading)  // the clock ticking must not resize the capsule
-                }
+            case .listening:
+                LevelBars(levels: state.levels)
+                    .frame(width: LevelBars.width, height: 16)
             case .recognizing:
                 Spinner()
-                Text("Recognizing…").font(.system(size: 13, weight: .medium))
             case .message(let text, let symbol):
                 Image(systemName: symbol)
                     .font(.system(size: 13, weight: .semibold))
@@ -159,14 +158,14 @@ private struct HUDView: View {
                     .frame(maxWidth: 400, alignment: .leading)
             }
         }
-        .padding(.horizontal, 18)
-        .frame(minHeight: Self.height)
+        .padding(.horizontal, showsMessage ? 18 : 14)
+        .frame(minHeight: showsMessage ? Self.messageHeight : Self.pillHeight)
         .glassEffect(.regular, in: .capsule)
         .shadow(color: .black.opacity(0.18), radius: 8, y: 2)
     }
 }
 
-/// The Recognizing spinner: an arc that Core Animation turns, exactly its 14 pt frame.
+/// The Recognizing spinner: an arc that Core Animation turns, exactly its 12 pt frame.
 ///
 /// Not `ProgressView`: that is an `NSProgressIndicator` whose drawing doesn't line up with its layout box,
 /// so the circle sat off center (≤1.4.3). Not a SwiftUI `repeatForever` animation either: a running SwiftUI
@@ -178,7 +177,7 @@ private struct Spinner: NSViewRepresentable {
     func updateNSView(_ view: SpinnerView, context: Context) {}
 
     func sizeThatFits(_ proposal: ProposedViewSize, nsView: SpinnerView, context: Context) -> CGSize? {
-        CGSize(width: 14, height: 14)
+        CGSize(width: 12, height: 12)
     }
 }
 
@@ -238,23 +237,28 @@ private final class SpinnerView: NSView {
     }
 }
 
-/// Bars for recent input levels, newest on the right.
+/// Bars mirrored about the center: the newest level in the middle bar, each older one a bar further out
+/// and a little lower, so speech ripples outward from the middle.
 private struct LevelBars: View {
     let levels: [Float]
-    var tint: Color = .red
-    var barWidth: CGFloat = 4
-    var spacing: CGFloat = 3
+
+    static let barWidth: CGFloat = 3
+    static let spacing: CGFloat = 3
+    static let barCount = HUDState.levelCount * 2 - 1
+    static let width = CGFloat(barCount) * (barWidth + spacing) - spacing
 
     var body: some View {
         GeometryReader { geo in
-            HStack(alignment: .center, spacing: spacing) {
-                ForEach(Array(levels.enumerated()), id: \.offset) { _, level in
+            HStack(alignment: .center, spacing: Self.spacing) {
+                ForEach(0..<Self.barCount, id: \.self) { index in
+                    let distance = abs(index - (levels.count - 1))
+                    let level = levels[levels.count - 1 - distance] * (1 - 0.15 * Float(distance))
                     Capsule()
-                        .fill(tint)
-                        .frame(width: barWidth, height: max(barWidth, CGFloat(level) * geo.size.height))
+                        .fill(Color.primary)
+                        .frame(width: Self.barWidth, height: max(Self.barWidth, CGFloat(level) * geo.size.height))
                 }
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .trailing)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
             .animation(.linear(duration: 0.08), value: levels)
         }
     }
