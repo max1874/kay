@@ -197,8 +197,8 @@ private struct Waveform: NSViewRepresentable {
 }
 
 private final class WaveformView: NSView {
-    static let barWidth: CGFloat = 4
-    static let spacing: CGFloat = 4
+    static let barWidth: CGFloat = 3
+    static let spacing: CGFloat = 5
     static let barCount = HUDState.levelCount * 2 - 1
     static let size = CGSize(width: CGFloat(barCount) * (barWidth + spacing) - spacing, height: 22)
     /// The swell's range, inside the 22 pt the voice can reach.
