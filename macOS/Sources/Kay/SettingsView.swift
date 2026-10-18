@@ -463,7 +463,7 @@ private struct VocabularyEditor: View {
         } header: {
             Text("Vocabulary")
         } footer: {
-            Text("Names you spell your own way, one per line. Kay fixes them when they come back spelled out (c f → CF, e to b → E2B). If one is misheard as something else, add that after a bar: Cursor | 咳嗽. # starts a comment.")
+            Text("Names you spell your own way, one per line. Kay fixes them when they come back spelled out (c f → CF, e to b → E2B). If one is misheard as something else, add that after a bar: Raycast | 瑞卡斯特. # starts a comment.")
                 .foregroundStyle(.secondary)
         }
         .onAppear {

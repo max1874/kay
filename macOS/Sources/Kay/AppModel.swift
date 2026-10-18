@@ -346,10 +346,9 @@ final class AppModel: ObservableObject {
                 // Your vocabulary before DeepSeek, so it reads "CF" rather than "c f"; and again on its answer, which
                 // may have re-spaced a term (TypeWhisper runs its corrections on both sides for the same reason).
                 let vocabulary = Vocabulary.current()
-                let replaced = vocabulary.apply(to: text)
-                if replaced != text {
-                    log.notice("vocabulary: \(vocabulary.replacements(in: text).count) replaced")
-                }
+                let replacements = vocabulary.replacements(in: text)
+                let replaced = vocabulary.apply(replacements, to: text)
+                if !replacements.isEmpty { log.notice("vocabulary: \(replacements.count) replaced") }
                 Correction.shared.correct(replaced) { corrected, ms in
                     // Cancelled meanwhile, like a session cancelled before its result. By identity, not by state:
                     // after a cancel the next dictation may be processing, and its audio and paste are its own.

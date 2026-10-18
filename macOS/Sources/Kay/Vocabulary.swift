@@ -1,14 +1,17 @@
 import Foundation
 
 /// Your own spellings, put in place after recognition with no model involved. One term per line in
-/// `vocabulary.txt`, `#` starts a comment, and how it gets misheard may follow after `|`: `Cursor | 咳嗽`.
+/// `vocabulary.txt`, `#` at the start or after a space starts a comment, and how it gets misheard may follow
+/// after `|`: `Raycast | 瑞卡斯特`.
 ///
 /// Only spans that are certainly the term are replaced:
-/// - the term spelled out letter by letter or split into words ("c f" → CF, "k a y" → Kay, "open AI" → OpenAI);
-/// - the term with its digits read out, when at least two of its letters stand alone ("e to b" → E2B; in English
-///   "m to" is usually just "m to");
+/// - the term spelled out letter by letter ("c f" → CF, "k a y" → Kay); not words that join into it, since
+///   "type switch" and "ray cast" are English before they are TypeSwitch and Raycast;
+/// - the term with its digits read out, next to Chinese ("切到 e to b" → E2B; "from E to B" is English);
 /// - an alias, written exactly as you wrote it.
-/// A change of case alone ("cursor") is not one: DeepSeek sees whether it is the name.
+/// A change of case alone ("cursor") is not one: DeepSeek sees whether it is the name. Terms with punctuation
+/// (C++, .NET) are kept but never matched: matching skips punctuation, so "c" would turn into C++.
+/// Replacing twice changes nothing more, since Kay runs it before DeepSeek and again on its answer.
 ///
 /// Nothing here reaches the speech service or DeepSeek. Hot words pulled unrelated speech towards the list
 /// (记录同步，yeah became Claude Code, 1.7.1), and so did terms shown to DeepSeek as candidates for what sounded
@@ -42,7 +45,9 @@ struct Vocabulary: Equatable {
     init(parsing text: String) {
         var terms: [Term] = []
         for raw in text.components(separatedBy: .newlines) {
-            let line = raw.split(separator: "#", maxSplits: 1, omittingEmptySubsequences: false).first.map(String.init) ?? ""
+            // C# keeps its #: a comment starts a line or follows a space.
+            let comment = raw.indices.first { raw[$0] == "#" && ($0 == raw.startIndex || raw[raw.index(before: $0)].isWhitespace) }
+            let line = String(raw[..<(comment ?? raw.endIndex)])
             let fields = line.split(separator: "|").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
             guard let term = fields.first else { continue }
             // A term on two lines keeps the aliases of both.
@@ -63,10 +68,21 @@ struct Vocabulary: Equatable {
     func replacements(in text: String) -> [Match] {
         guard !forms.isEmpty else { return [] }
         var found: [Match] = []
+        // Where the term itself is said, in any case or spacing.
+        var said: [Match] = []
         for segment in Self.segments(text) {
             for form in forms {
-                found += Self.find(form, in: segment, of: text)
+                for (match, replaces) in Self.find(form, in: segment, of: text) {
+                    if replaces { found.append(match) }
+                    if form.kind == .term { said.append(match) }
+                }
             }
+        }
+        // Inside the term already: an alias that is part of its term (Claude for Claude Code) would otherwise
+        // grow it on every pass.
+        found.removeAll { match in
+            said.contains { $0.term == match.term && $0.range != match.range
+                && $0.range.lowerBound <= match.range.lowerBound && match.range.upperBound <= $0.range.upperBound }
         }
         found.sort { text.distance(from: $0.range.lowerBound, to: $0.range.upperBound)
             > text.distance(from: $1.range.lowerBound, to: $1.range.upperBound) }
@@ -78,8 +94,13 @@ struct Vocabulary: Equatable {
     }
 
     func apply(to text: String) -> String {
+        apply(replacements(in: text), to: text)
+    }
+
+    /// `matches` from `replacements(in: text)`.
+    func apply(_ matches: [Match], to text: String) -> String {
         var result = text
-        for match in replacements(in: text).reversed() {
+        for match in matches.reversed() {
             result.replaceSubrange(match.range, with: match.term)
         }
         return result
@@ -111,7 +132,7 @@ struct Vocabulary: Equatable {
                 heard.append((term.text.map { c in words[c].map { " \($0) " } ?? String(c) }.joined(), .reading))
             }
             heard += term.aliases.map { ($0, .alias) }
-            for (text, kind) in heard {
+            for (text, kind) in heard where text.allSatisfy({ $0.isLetter || $0.isNumber || $0.isWhitespace }) {
                 let units = segments(text).flatMap(\.self)
                 if !units.isEmpty { forms.append(Form(term: term.text, units: units, kind: kind)) }
             }
@@ -172,7 +193,7 @@ struct Vocabulary: Equatable {
                 latin.append((c, index..<next))
             } else if c == "'" || c == "’", !latin.isEmpty, next < text.endIndex, text[next].isASCII, text[next].isLetter {
                 // Inside a word ("I'm"): neither a unit nor a break.
-            } else if c.isWhitespace {
+            } else if c.isWhitespace && !c.isNewline {
                 flushLatin()
             } else if c.isLetter {
                 flushLatin()
@@ -186,11 +207,12 @@ struct Vocabulary: Equatable {
         return segments
     }
 
-    /// Every place `form` occurs in `segment` unit for unit, starting and ending on word boundaries.
-    private static func find(_ form: Form, in segment: [Unit], of text: String) -> [Match] {
+    /// Every place `form` occurs in `segment` unit for unit, starting and ending on word boundaries, and whether
+    /// it is certainly the term (see `Vocabulary`).
+    private static func find(_ form: Form, in segment: [Unit], of text: String) -> [(Match, replaces: Bool)] {
         let p = form.units
         guard p.count <= segment.count else { return [] }
-        var found: [Match] = []
+        var found: [(Match, replaces: Bool)] = []
         for start in 0...(segment.count - p.count) where segment[start].starts {
             let end = start + p.count
             guard segment[end - 1].ends,
@@ -198,16 +220,20 @@ struct Vocabulary: Equatable {
             let span = segment[start..<end]
             let range = span.first!.range.lowerBound..<span.last!.range.upperBound
             let heard = String(text[range])
+            let words = span.filter(\.starts).count
+            let letters = span.filter { $0.starts && $0.ends && $0.value.isLetter }.count
+            let nextToChinese = (start > 0 && !segment[start - 1].isLatin) || (end < segment.count && !segment[end].isLatin)
             let replaces: Bool
             switch form.kind {
             case .term:
-                replaces = span.allSatisfy(\.isLatin) && heard.lowercased() != form.term.lowercased()
+                replaces = span.allSatisfy(\.isLatin) && words >= 2 && span.allSatisfy { $0.starts && $0.ends }
+                    && heard.lowercased() != form.term.lowercased()
             case .reading:
-                replaces = span.filter { $0.isLatin && $0.starts && $0.ends && $0.value.isLetter }.count >= 2
+                replaces = letters >= 2 && nextToChinese
             case .alias:
                 replaces = heard != form.term
             }
-            if replaces { found.append(Match(range: range, heard: heard, term: form.term)) }
+            found.append((Match(range: range, heard: heard, term: form.term), replaces))
         }
         return found
     }
@@ -229,10 +255,11 @@ struct Vocabulary: Equatable {
         (try? String(contentsOf: url, encoding: .utf8)) ?? ""
     }
 
-    /// Writes through a symlink rather than replacing it.
+    /// Writes through a symlink rather than replacing it, even one whose file isn't there yet.
     @discardableResult
     static func save(_ text: String) -> Bool {
-        let target = url.resolvingSymlinksInPath()
+        let target = (try? FileManager.default.destinationOfSymbolicLink(atPath: url.path))
+            .map { URL(fileURLWithPath: $0, relativeTo: url.deletingLastPathComponent()).standardizedFileURL } ?? url
         try? FileManager.default.createDirectory(at: target.deletingLastPathComponent(), withIntermediateDirectories: true)
         do {
             try text.write(to: target, atomically: true, encoding: .utf8)

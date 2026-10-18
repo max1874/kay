@@ -81,10 +81,11 @@ microphone it came from (`microphone`).
   keeps the recognizer's text in `heard` when correction or the vocabulary changed it.
 - **Vocabulary.** **Settings → Correction → Vocabulary** (`vocabulary.txt`, one term per line, `Term | how it gets
   misheard`) puts your spellings back in place, with no model and no key: a term spelled out letter by letter
-  ("c f" → CF), with its digits read out ("e to b" → E2B), or one of the aliases you wrote. Before DeepSeek and again
-  on its answer. On 591 of Max's dictations (2026-10-18) it replaced 6 spans, all of them right. The list goes
-  nowhere else: as hot words it pulled unrelated speech towards its terms (1.7.1), and shown to DeepSeek as
-  candidates for what sounded close it turned 同意 and 统一 into 通义 and Mac mini into Gemini.
+  ("c f" → CF), with its digits read out next to Chinese ("e to b" → E2B), or one of the aliases you wrote; never
+  English words that happen to join into a term ("type switch"). Before DeepSeek and again on its answer. On 595 of
+  Max's dictations (2026-10-18) it replaced 5 spans, all of them right. The list goes nowhere else: as hot words it
+  pulled unrelated speech towards its terms (1.7.1), and shown to DeepSeek as candidates for what sounded close it
+  turned 同意 and 统一 into 通义 and Mac mini into Gemini.
 - **History.** Every dictation — and the reason, when one fails — is kept on this Mac in
   `~/Library/Application Support/Kay/history.json` (last 1000). Click one to copy it again.
 - **Recent audio.** The last 20 dictations' audio is kept next to it in `recent/<entry id>.wav`, so a
