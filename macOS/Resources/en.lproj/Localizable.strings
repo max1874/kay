@@ -153,3 +153,8 @@
 "DeepSeek rejected this key." = "DeepSeek rejected this key.";
 "The DeepSeek account has run out of balance." = "The DeepSeek account has run out of balance.";
 "DeepSeek returned an error: %@" = "DeepSeek returned an error: %@";
+"Vocabulary" = "Vocabulary";
+"Save" = "Save";
+"%lld terms" = "%lld terms";
+"Couldn't save the vocabulary." = "Couldn't save the vocabulary.";
+"Names you spell your own way, one per line. Kay fixes them when they come back spelled out (c f → CF, e to b → E2B). If one is misheard as something else, add that after a bar: Raycast | 瑞卡斯特. # starts a comment." = "Names you spell your own way, one per line. Kay fixes them when they come back spelled out (c f → CF, e to b → E2B). If one is misheard as something else, add that after a bar: Raycast | 瑞卡斯特. # starts a comment.";

@@ -399,6 +399,8 @@ private struct CorrectionSettings: View {
                     Button("Remove Key…", role: .destructive) { confirmRemove = true }
                 }
             }
+
+            VocabularyEditor()
         }
         .formStyle(.grouped)
         .fixedSize(horizontal: false, vertical: true)
@@ -423,6 +425,50 @@ private struct CorrectionSettings: View {
         Task { @MainActor in
             await correction.test(newKey: key.isEmpty ? nil : key)
             if case .connected = correction.status, correction.candidateError == nil { draft = "" }
+        }
+    }
+}
+
+/// The vocabulary file, edited in place; the next dictation uses it. It works without a DeepSeek key.
+private struct VocabularyEditor: View {
+    @State private var text = ""
+    @State private var saved = ""
+    @State private var failed = false
+
+    var body: some View {
+        Section {
+            TextEditor(text: $text)
+                .font(.system(.callout, design: .monospaced))
+                .frame(height: 140)
+                .onChange(of: text) { failed = false }
+            HStack(spacing: 12) {
+                if failed {
+                    Label("Couldn't save the vocabulary.", systemImage: "xmark.octagon.fill")
+                        .foregroundStyle(.red)
+                } else {
+                    Text("\(Vocabulary(parsing: text).terms.count) terms")
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                Button("Show in Finder") {
+                    NSWorkspace.shared.activateFileViewerSelecting([Vocabulary.url])
+                }
+                Button("Save") {
+                    guard Vocabulary.save(text) else { failed = true; return }
+                    saved = text
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(text == saved)
+            }
+        } header: {
+            Text("Vocabulary")
+        } footer: {
+            Text("Names you spell your own way, one per line. Kay fixes them when they come back spelled out (c f → CF, e to b → E2B). If one is misheard as something else, add that after a bar: Raycast | 瑞卡斯特. # starts a comment.")
+                .foregroundStyle(.secondary)
+        }
+        .onAppear {
+            text = Vocabulary.text()
+            saved = text
         }
     }
 }

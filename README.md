@@ -78,7 +78,14 @@ microphone it came from (`microphone`).
   said, rewrites or drops more than a little of it, instead of replacing words in place (a reply rather than a
   correction), and for dictations under 4 words or characters. A short dictation replaced by an English word of
   about its length ("Done") still gets through: by counting it looks like a name fix. History
-  keeps the recognizer's text in `heard` when correction changed it.
+  keeps the recognizer's text in `heard` when correction or the vocabulary changed it.
+- **Vocabulary.** **Settings → Correction → Vocabulary** (`vocabulary.txt`, one term per line, `Term | how it gets
+  misheard`) puts your spellings back in place, with no model and no key: a term spelled out letter by letter
+  ("c f" → CF), with its digits read out next to Chinese ("e to b" → E2B), or one of the aliases you wrote; never
+  English words that happen to join into a term ("type switch"). Before DeepSeek and again on its answer. On 595 of
+  Max's dictations (2026-10-18) it replaced 5 spans, all of them right. The list goes nowhere else: as hot words it
+  pulled unrelated speech towards its terms (1.7.1), and shown to DeepSeek as candidates for what sounded close it
+  turned 同意 and 统一 into 通义 and Mac mini into Gemini.
 - **History.** Every dictation — and the reason, when one fails — is kept on this Mac in
   `~/Library/Application Support/Kay/history.json` (last 1000). Click one to copy it again.
 - **Recent audio.** The last 20 dictations' audio is kept next to it in `recent/<entry id>.wav`, so a
@@ -181,7 +188,7 @@ Apple 芯片的 macOS 26）。1.5.0 起自动更新：每天检查一次，后�
 费用由阿里云按输入、输出 Token 收取。
 
 **切换服务**：「设置 → 语音服务 → 听写使用」或主窗口麦克风菜单旁的菜单。每个服务的 Key 各自存在钥匙串里，
-只发给它自己的服务。总被听错的专名（如 Raycast、Cursor）交给 DeepSeek 纠错：在「设置 → 纠错」填自己的 DeepSeek Key，粘贴前会改正听错的词，不改写句子。词汇表（热词）在 1.8.0 已移除。豆包 Key 在[火山引擎控制台](https://console.volcengine.com/speech/new/setting/apikeys)（新版）创建，
+只发给它自己的服务。总被听错的专名（如 Raycast、Cursor）交给 DeepSeek 纠错：在「设置 → 纠错」填自己的 DeepSeek Key，粘贴前会改正听错的词，不改写句子。被拆成字母的名字（c f、e to b）写进「设置 → 纠错 → 词表」，Kay 会直接改回 CF、E2B；总被听成别的词的，写成 `Cursor | 咳嗽`。词表不需要 Key，也不发给任何服务（热词在 1.8.0 已移除）。豆包 Key 在[火山引擎控制台](https://console.volcengine.com/speech/new/setting/apikeys)（新版）创建，
 填好后选资源类型（小时版或并发版）再测试并保存。
 
 **快捷键**：默认 fn，可改成右 Option。按住时再按其他键会取消本次录音，所以 fn 和 ⌥ 组合键照常可用。
