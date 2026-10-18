@@ -308,7 +308,7 @@ final class AppModel: ObservableObject {
         self.pending = pending
         pressedAt = pressed
         state = .recording
-        hud.listen(since: pressedAt)
+        hud.listen()
     }
 
     private func end() {
