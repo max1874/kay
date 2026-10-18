@@ -343,14 +343,22 @@ final class AppModel: ObservableObject {
                 guard case .success(let raw) = result else { return deliver(result) }
                 let text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
                 guard !text.isEmpty else { return deliver(result) }
-                Correction.shared.correct(text) { corrected, ms in
+                // Your vocabulary before DeepSeek, so it reads "CF" rather than "c f"; and again on its answer, which
+                // may have re-spaced a term (TypeWhisper runs its corrections on both sides for the same reason).
+                let vocabulary = Vocabulary.current()
+                let replaced = vocabulary.apply(to: text)
+                if replaced != text {
+                    log.notice("vocabulary: \(vocabulary.replacements(in: text).count) replaced")
+                }
+                Correction.shared.correct(replaced) { corrected, ms in
                     // Cancelled meanwhile, like a session cancelled before its result. By identity, not by state:
                     // after a cancel the next dictation may be processing, and its audio and paste are its own.
                     guard self.state == .processing, let current = self.session, current === dictation else {
                         return log.notice("correction for a cancelled dictation dropped")
                     }
-                    guard let corrected, corrected != text else { return deliver(result, correctionMs: ms) }
-                    deliver(.success(corrected), heard: text, correctionMs: ms)
+                    let final = vocabulary.apply(to: corrected ?? replaced)
+                    guard final != text else { return deliver(result, correctionMs: ms) }
+                    deliver(.success(final), heard: text, correctionMs: ms)
                 }
             }
         }

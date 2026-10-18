@@ -178,6 +178,12 @@ GROUPS = [
         ("DeepSeek rejected this key.", "DeepSeek 拒绝了这个 Key。"),
         ("The DeepSeek account has run out of balance.", "DeepSeek 账户余额不足。"),
         ("DeepSeek returned an error: %@", "DeepSeek 返回错误：%@"),
+        ("Vocabulary", "词表"),
+        ("Save", "保存"),
+        ("%lld terms", "%lld 个词"),
+        ("Couldn't save the vocabulary.", "词表没能保存。"),
+        ("Names you spell your own way, one per line. Kay fixes them when they come back spelled out (c f → CF, e to b → E2B). If one is misheard as something else, add that after a bar: Cursor | 咳嗽. # starts a comment.",
+         "你有固定写法的名字，一行一个。识别结果把它拆成字母时（c f → CF，e to b → E2B），Kay 会改回来。如果某个词总被听成别的，把听成的样子写在竖线后面：Cursor | 咳嗽。# 之后是注释。"),
     ]),
 ]
 
