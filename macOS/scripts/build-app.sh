@@ -44,6 +44,35 @@ mkdir -p "$APP/Contents/Frameworks"
 ditto "$SPARKLE" "$APP/Contents/Frameworks/Sparkle.framework"
 FRAMEWORK="$APP/Contents/Frameworks/Sparkle.framework"
 
+# MediaPause runs macOS/Vendor/mediaremote-adapter through /usr/bin/perl (see its README): the framework
+# perl loads, and the script that loads it.
+echo "==> building MediaRemoteAdapter.framework"
+MRA_SRC="$ROOT/macOS/Vendor/mediaremote-adapter"
+MRA="$APP/Contents/Frameworks/MediaRemoteAdapter.framework"
+mkdir -p "$MRA/Versions/A/Resources"
+clang -dynamiclib -O2 -w -mmacosx-version-min=26.0 -fobjc-arc -fvisibility=default \
+	-I"$MRA_SRC/include" -I"$MRA_SRC/src" "$MRA_SRC"/src/{adapter,private,utility}/*.m \
+	-framework Foundation -framework AppKit -framework UniformTypeIdentifiers \
+	-install_name @rpath/MediaRemoteAdapter.framework/Versions/A/MediaRemoteAdapter \
+	-o "$MRA/Versions/A/MediaRemoteAdapter"
+cat > "$MRA/Versions/A/Resources/Info.plist" <<-PLIST
+	<?xml version="1.0" encoding="UTF-8"?>
+	<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+	<plist version="1.0">
+	<dict>
+		<key>CFBundleExecutable</key><string>MediaRemoteAdapter</string>
+		<key>CFBundleIdentifier</key><string>com.max1874.kay.MediaRemoteAdapter</string>
+		<key>CFBundlePackageType</key><string>FMWK</string>
+		<key>CFBundleShortVersionString</key><string>0.7.7</string>
+		<key>CFBundleVersion</key><string>0.7.7</string>
+	</dict>
+	</plist>
+PLIST
+ln -s A "$MRA/Versions/Current"
+ln -s Versions/Current/MediaRemoteAdapter "$MRA/MediaRemoteAdapter"
+ln -s Versions/Current/Resources "$MRA/Resources"
+cp "$MRA_SRC/bin/mediaremote-adapter.pl" "$APP/Contents/Resources/mediaremote-adapter.pl"
+
 IDENTITY="${SIGN_IDENTITY:-$(security find-identity -v -p codesigning 2>/dev/null \
 	| grep -oE '"Developer ID Application[^"]*"' | head -1 | tr -d '"' || true)}"
 if [ -n "$IDENTITY" ]; then
@@ -60,6 +89,7 @@ if [ -n "$IDENTITY" ]; then
 		$FRAMEWORK/Versions/B/Updater.app
 	NESTED
 	codesign --force --options runtime --timestamp --sign "$IDENTITY" "$FRAMEWORK"
+	codesign --force --options runtime --timestamp --sign "$IDENTITY" "$MRA"
 	codesign --force --options runtime --timestamp \
 		--entitlements "$RES/Kay.entitlements" --sign "$IDENTITY" "$APP"
 	codesign --verify --deep --strict "$APP"

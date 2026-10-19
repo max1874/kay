@@ -106,12 +106,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// A quit while you are dictating (an install replacing Kay, logout, the menu) waits for the text to
     /// land: quitting there loses what was said. A dictation that never ends doesn't hold the quit past 60 s.
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
-        guard AppModel.shared.state != .idle else { return .terminateNow }
+        guard AppModel.shared.state != .idle else {
+            MediaPause.shared.resumeBeforeQuit(timeout: 1.5)
+            return .terminateNow
+        }
         guard quitWhenIdle == nil else { return .terminateLater }
         log.notice("quit requested while dictating; quitting once it lands")
         let quit = { [weak self] in
             guard let self, self.quitWhenIdle != nil else { return }
             self.quitWhenIdle = nil
+            MediaPause.shared.resumeBeforeQuit(timeout: 1.5)
             sender.reply(toApplicationShouldTerminate: true)
         }
         quitWhenIdle = AppModel.shared.$state.first { $0 == .idle }.sink { _ in DispatchQueue.main.async(execute: quit) }

@@ -51,7 +51,11 @@ final class AppModel: ObservableObject {
     }
 
     @Published private(set) var state = State.idle {
-        didSet { if state == .idle { HangWatchdog.shared.disarm() } }
+        didSet {
+            guard state == .idle else { return }
+            HangWatchdog.shared.disarm()
+            MediaPause.shared.resume()
+        }
     }
     @Published private(set) var history: [HistoryEntry] = []
     @Published private(set) var microphone = AVCaptureDevice.authorizationStatus(for: .audio)
@@ -309,6 +313,11 @@ final class AppModel: ObservableObject {
         pressedAt = pressed
         state = .recording
         hud.listen()
+        // Once the hold stops looking like a tap: fn is also held for fn-arrow and fn-delete, which cancel.
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.minHold) { [weak self, weak session] in
+            guard let self, self.state == .recording, let session, self.session === session else { return }
+            MediaPause.shared.pause()
+        }
     }
 
     private func end() {

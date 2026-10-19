@@ -34,6 +34,7 @@ private struct GeneralSettings: View {
     @AppStorage(AppModel.menuBarIconKey) private var showMenuBarIcon = true
     @AppStorage(AppModel.dockIconKey) private var showDockIcon = true
     @AppStorage(AppModel.clipboardHistoryKey) private var showInClipboardHistory = true
+    @AppStorage(MediaPause.defaultsKey) private var pauseMedia = true
     @AppStorage(Microphones.storageKey) private var microphoneUID = ""
     @State private var microphones: [Microphones.Device] = []
     @State private var defaultMicrophone: String?
@@ -104,6 +105,13 @@ private struct GeneralSettings: View {
                 Text("Pasting")
             } footer: {
                 Text("Kay pastes through the clipboard and then puts back what was there. When this is off, clipboard history apps such as Raycast leave dictations out.")
+                    .foregroundStyle(.secondary)
+            }
+
+            Section {
+                Toggle("Pause Music and Videos", isOn: $pauseMedia)
+            } footer: {
+                Text("While you dictate with the sound coming from speakers, Kay pauses what is playing and plays it again afterwards. With headphones it keeps playing.")
                     .foregroundStyle(.secondary)
             }
 

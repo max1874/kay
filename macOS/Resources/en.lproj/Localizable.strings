@@ -136,6 +136,8 @@
 "Show in Clipboard History" = "Show in Clipboard History";
 "Pasting" = "Pasting";
 "Kay pastes through the clipboard and then puts back what was there. When this is off, clipboard history apps such as Raycast leave dictations out." = "Kay pastes through the clipboard and then puts back what was there. When this is off, clipboard history apps such as Raycast leave dictations out.";
+"Pause Music and Videos" = "Pause Music and Videos";
+"While you dictate with the sound coming from speakers, Kay pauses what is playing and plays it again afterwards. With headphones it keeps playing." = "While you dictate with the sound coming from speakers, Kay pauses what is playing and plays it again afterwards. With headphones it keeps playing.";
 "Recovered a dictation Kay didn't finish. It's in History." = "Recovered a dictation Kay didn't finish. It's in History.";
 "Copied. Kay needs Accessibility permission to paste for you." = "Copied. Kay needs Accessibility permission to paste for you.";
 
