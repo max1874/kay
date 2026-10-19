@@ -17,7 +17,7 @@ let package = Package(
             path: ".",
             // Everything else under the root is not the package's business. Without this SwiftPM also
             // picks up the .lproj folders (macOS/Resources, build/Kay.app) as package resources and refuses.
-            exclude: ["macOS/Resources", "macOS/scripts", "build", "tools", "iOS", "README.md", "LICENSE", "Makefile", "appcast.xml"],
+            exclude: ["macOS/Resources", "macOS/scripts", "macOS/Vendor", "build", "tools", "iOS", "README.md", "LICENSE", "Makefile", "appcast.xml"],
             sources: ["macOS/Sources/Kay", "Shared"],
             swiftSettings: [.swiftLanguageMode(.v5)],
             // macOS/scripts/build-app.sh copies Sparkle.framework into Contents/Frameworks; without this

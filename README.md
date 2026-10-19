@@ -86,6 +86,12 @@ microphone it came from (`microphone`).
   Max's dictations (2026-10-18) it replaced 5 spans, all of them right. The list goes nowhere else: as hot words it
   pulled unrelated speech towards its terms (1.7.1), and shown to DeepSeek as candidates for what sounded close it
   turned 同意 and 统一 into 通义 and Mac mini into Gemini.
+- **Music and videos.** When the sound comes from speakers (the Mac's, a display's, HDMI, AirPlay), Kay pauses what
+  is playing once you have held the key for 0.3 s and plays it again when the dictation is over; with Bluetooth
+  audio (headphones, and a Bluetooth speaker too, which Core Audio can't tell apart) or the headphone jack it leaves it playing. **Settings → General → Pause Music and Videos** turns it off.
+  It reads and commands the system's Now Playing through [mediaremote-adapter](https://github.com/ungive/mediaremote-adapter)
+  (`macOS/Vendor`, BSD 3-Clause), run by `/usr/bin/perl`, since macOS 15.4 lets only Apple's own processes use it.
+  Kay pauses only what it read as playing and plays only what it paused, so a paused player is never started.
 - **History.** Every dictation — and the reason, when one fails — is kept on this Mac in
   `~/Library/Application Support/Kay/history.json` (last 1000). Click one to copy it again.
 - **Recent audio.** The last 20 dictations' audio is kept next to it in `recent/<entry id>.wav`, so a
@@ -164,7 +170,7 @@ release, then the appcast that installed copies update from — and installs it 
 
 ## License
 
-[MIT](LICENSE)
+[MIT](LICENSE). `macOS/Vendor/mediaremote-adapter` is BSD 3-Clause, © Jonas van den Berg (its `LICENSE`).
 
 ---
 
@@ -192,6 +198,8 @@ Apple 芯片的 macOS 26）。1.5.0 起自动更新：每天检查一次，后�
 填好后选资源类型（小时版或并发版）再测试并保存。
 
 **快捷键**：默认 fn，可改成右 Option。按住时再按其他键会取消本次录音，所以 fn 和 ⌥ 组合键照常可用。
+
+**音乐和视频**：声音从扬声器外放时（Mac 自带、显示器、HDMI、AirPlay），按住超过 0.3 秒 Kay 会暂停正在播放的内容，听写结束后接着播放；用蓝牙设备（耳机，也包括蓝牙音箱，系统分不出来）或插耳机孔时照常播放。可在「设置 → 通用 → 暂停音乐和视频」关闭。只暂停读到正在播放的内容，只恢复自己暂停的那一个，不会把本来停着的播放器打开。
 如果松开 fn 后弹出了表情面板，把「系统设置 → 键盘 → 按下 🌐 键时」设为「不执行任何操作」。
 
 **隐私**：Key 只存在 macOS 钥匙串；音频从你的 Mac 直接发到你选的服务（阿里云或火山引擎），不经过其他地方。填了 DeepSeek Key 时，识别出的文字（不是音频）会发给 DeepSeek 纠错（「设置 → 纠错」，默认开启）。

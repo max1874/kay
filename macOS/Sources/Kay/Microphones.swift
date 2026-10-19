@@ -63,7 +63,7 @@ enum Microphones {
         return type == kAudioDeviceTransportTypeBluetooth || type == kAudioDeviceTransportTypeBluetoothLE
     }
 
-    private static func transport(_ id: AudioDeviceID) -> UInt32? {
+    static func transport(_ id: AudioDeviceID) -> UInt32? {
         var address = AudioObjectPropertyAddress(mSelector: kAudioDevicePropertyTransportType,
                                                  mScope: kAudioObjectPropertyScopeGlobal,
                                                  mElement: kAudioObjectPropertyElementMain)
@@ -98,7 +98,7 @@ enum Microphones {
         return buffers.contains { $0.mNumberChannels > 0 }
     }
 
-    private static func string(_ id: AudioObjectID, _ selector: AudioObjectPropertySelector) -> String? {
+    static func string(_ id: AudioObjectID, _ selector: AudioObjectPropertySelector) -> String? {
         var address = AudioObjectPropertyAddress(mSelector: selector,
                                                  mScope: kAudioObjectPropertyScopeGlobal,
                                                  mElement: kAudioObjectPropertyElementMain)
