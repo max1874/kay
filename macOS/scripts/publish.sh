@@ -48,9 +48,6 @@ TAG="v$VERSION"
 DMG="build/Kay-$VERSION.dmg"
 ZIP="build/Kay-$VERSION.zip"
 URL="https://github.com/max1874/kay/releases/download/$TAG/Kay-$VERSION.zip"
-# The exported key, not the login keychain copy: that one puts up a password dialog in the middle of every
-# release (sign_update is a fresh binary each time SwiftPM re-resolves, so "Always Allow" doesn't stick).
-SPARKLE_KEY="${KAY_SPARKLE_KEY:-$HOME/Projects/Keys/sparkle-kay-ed25519.key}"
 # appcast.xml is committed and pushed from here, so main has to be clean and in sync.
 require_main() {
   [ "$(git branch --show-current)" = "main" ] || die "releases are cut from main"
@@ -77,7 +74,11 @@ release() {
   command -v asc >/dev/null || die "asc not on PATH (apple-developer repo)"
   command -v gh >/dev/null || die "gh not on PATH"
   require_unpublished
-  [ -f "$SPARKLE_KEY" ] || die "Sparkle signing key not found at $SPARKLE_KEY"
+  # The exported key from 1Password, fed to sign_update on stdin, not the login keychain copy: that one puts
+  # up a password dialog in the middle of every release (sign_update is a fresh binary each time SwiftPM
+  # re-resolves, so "Always Allow" doesn't stick).
+  local sparkle_key
+  sparkle_key="$("$HOME/.agents/bin/key" run K=SPARKLE_KAY -- printenv K)" || die "could not read SPARKLE_KAY with key"
   local sign_update
   sign_update="$(find .build/artifacts -maxdepth 6 -type f -name sign_update -path '*/bin/sign_update' \
     -not -path '*old_dsa*' 2>/dev/null | head -1)"
@@ -104,7 +105,7 @@ release() {
   xcrun stapler validate build/Kay.app
   # Prints the two attributes the appcast item needs: sparkle:edSignature="…" length="…"
   local signed signature length
-  signed="$("$sign_update" -f "$SPARKLE_KEY" "$ZIP")"
+  signed="$(printf '%s' "$sparkle_key" | "$sign_update" -f - "$ZIP")"
   signature="$(printf '%s' "$signed" | sed -n 's/.*sparkle:edSignature="\([^"]*\)".*/\1/p')"
   length="$(printf '%s' "$signed" | sed -n 's/.*length="\([^"]*\)".*/\1/p')"
   [ -n "$signature" ] && [ -n "$length" ] || die "could not read sign_update output"
