@@ -2,9 +2,54 @@ import AppKit
 import Combine
 import SwiftUI
 
-/// The main window does two things: says whether Kay can dictate, and gives back what you said.
-/// One column: status and usage on top, then every dictation as a card, newest first.
+/// The main window: a sidebar with your dictations and Kay's settings, and the chosen pane beside it.
 struct ContentView: View {
+    @AppStorage(Pane.storageKey) private var pane = Pane.dictations
+
+    var body: some View {
+        NavigationSplitView {
+            List(selection: Binding(get: { pane }, set: { $0?.select() })) {
+                PaneRow(pane: .dictations).tag(Pane.dictations)
+                Section("Settings") {
+                    ForEach(Pane.settings) { PaneRow(pane: $0).tag($0) }
+                }
+            }
+            .listStyle(.sidebar)
+            // The sidebar toggle stays: removing it, as Lumo's Settings does, pinned this sidebar at 140 pt and cut
+            // "Speech Service" short (macOS 26.7, 2026-10-31).
+            .navigationSplitViewColumnWidth(min: 200, ideal: 215, max: 260)
+        } detail: {
+            if pane == .dictations {
+                DictationsView()
+            } else {
+                SettingsPane(pane: pane)
+                    .navigationTitle(pane.title)
+            }
+        }
+        .frame(minWidth: 760, minHeight: 460)
+    }
+}
+
+/// A sidebar row: the symbol in a filled rounded square, as in Lumo's Settings and System Settings.
+private struct PaneRow: View {
+    let pane: Pane
+
+    var body: some View {
+        HStack(spacing: 9) {
+            Image(systemName: pane.symbol)
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(.white)
+                .frame(width: 21, height: 21)
+                .background(pane.tint.gradient, in: .rect(cornerRadius: 5.5))
+            Text(pane.title)
+        }
+        .padding(.vertical, 2)
+    }
+}
+
+/// Says whether Kay can dictate, and gives back what you said. One column: status and usage on top, then
+/// every dictation as a card, newest first.
+private struct DictationsView: View {
     @ObservedObject private var model = AppModel.shared
     @State private var query = ""
 
@@ -54,9 +99,6 @@ struct ContentView: View {
         .scrollEdgeEffectStyle(.soft, for: .top)
         .navigationTitle("Kay")
         .searchable(text: $query, placement: .toolbar, prompt: Text("Search Dictations"))
-        // No Settings button in the toolbar: the HIG keeps that space for frequent commands, and Settings
-        // opens the standard way, Kay → Settings… (⌘,).
-        .frame(minWidth: 560, minHeight: 460)
     }
 }
 
@@ -66,8 +108,6 @@ struct ContentView: View {
 private struct StatusHeader: View {
     @ObservedObject private var model = AppModel.shared
     @ObservedObject private var speech = SpeechService.shared
-    @Environment(\.openSettings) private var openSettings
-    @AppStorage(SettingsTab.storageKey) private var settingsTab = SettingsTab.general
 
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
@@ -108,10 +148,7 @@ private struct StatusHeader: View {
                     SetupCard(done: speech.status.isUsable, symbol: "key.fill", tint: .purple,
                               title: "Speech Service",
                               detail: speech.status.summary(maskedKey: speech.maskedKey, provider: speech.provider),
-                              action: "Add API Key") {
-                        settingsTab = .speech
-                        openSettings()
-                    }
+                              action: "Add API Key", perform: Pane.speech.select)
                 }
             }
 
@@ -183,8 +220,6 @@ private struct MicrophoneMenu: View {
 /// another one, or a key, happens in Settings, the same choice shown as the list on top of Speech Service.
 private struct EngineMenu: View {
     @ObservedObject private var speech = SpeechService.shared
-    @Environment(\.openSettings) private var openSettings
-    @AppStorage(SettingsTab.storageKey) private var settingsTab = SettingsTab.general
 
     var body: some View {
         Menu {
@@ -196,10 +231,7 @@ private struct EngineMenu: View {
             .pickerStyle(.inline)
             .labelsHidden()
             Divider()
-            Button("Speech Service Settings…") {
-                settingsTab = .speech
-                openSettings()
-            }
+            Button("Speech Service Settings…", action: Pane.speech.select)
         } label: {
             Label {
                 Text(verbatim: speech.provider.shortName)
