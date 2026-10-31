@@ -41,11 +41,15 @@ struct KayApp: App {
 
     static func showMainWindow() {
         NSApp.activate()
-        // A minimized window still exists, and SwiftUI won't open it again: 1.5.10 got its window minimized,
-        // then neither the Dock icon nor Spotlight could bring it back. Bring it back here.
-        if let window = NSApp.windows.first(where: { $0.identifier?.rawValue == mainWindow && $0.isMiniaturized }) {
-            log.notice("restoring the minimized main window")
-            window.deminiaturize(nil)
+        // A window that is up, or minimized, is brought forward as it is. Opening kay://main over a window on
+        // screen closed it and opened it again, a visible flash on ⌘, (1.18.0). A minimized window SwiftUI
+        // won't open again either: 1.5.10 got its window minimized, then neither the Dock icon nor Spotlight
+        // could bring it back.
+        if let window = NSApp.windows.first(where: { $0.identifier?.rawValue == mainWindow && ($0.isVisible || $0.isMiniaturized) }) {
+            if window.isMiniaturized {
+                log.notice("restoring the minimized main window")
+                window.deminiaturize(nil)
+            }
             window.makeKeyAndOrderFront(nil)
             return
         }
