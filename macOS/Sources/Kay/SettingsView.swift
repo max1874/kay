@@ -1,29 +1,75 @@
 import AppKit
 import SwiftUI
 
-enum SettingsTab: String {
-    case general, speech, correction
+/// What the main window shows beside its sidebar: your dictations, or one pane of Kay's settings. Settings has
+/// no window of its own (Max, 2026-10-31: one window instead of two side by side).
+enum Pane: String, Identifiable {
+    case dictations, general, speech, correction
 
-    /// Shared with Home, whose "Add API Key" opens Settings on the Speech Service tab.
-    static let storageKey = "settings.tab"
+    static let settings: [Pane] = [.general, .speech, .correction]
+    static let storageKey = "pane"
+    /// The settings pane seen last, which Settings… (⌘,) opens again (HIG, Settings: restore the most recently
+    /// viewed pane). The Settings window kept its tab here, so that choice carries over.
+    private static let settingsKey = "settings.tab"
+
+    var id: String { rawValue }
+
+    var title: LocalizedStringKey {
+        switch self {
+        case .dictations: "Dictations"
+        case .general: "General"
+        case .speech: "Speech Service"
+        case .correction: "Correction"
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .dictations: "text.bubble"
+        case .general: "gearshape"
+        case .speech: "waveform.badge.mic"
+        case .correction: "text.badge.checkmark"
+        }
+    }
+
+    /// Each pane its own colour, as in Lumo's Settings: a row is found at a glance rather than read.
+    var tint: Color {
+        switch self {
+        case .dictations: .pink
+        case .general: .gray
+        case .speech: .purple
+        case .correction: .teal
+        }
+    }
+
+    /// Switches the main window to this pane; `show()` also brings the window up.
+    func select() {
+        UserDefaults.standard.set(rawValue, forKey: Self.storageKey)
+        if self != .dictations { UserDefaults.standard.set(rawValue, forKey: Self.settingsKey) }
+    }
+
+    func show() {
+        select()
+        KayApp.showMainWindow()
+    }
+
+    static func showSettings() {
+        (Pane(rawValue: UserDefaults.standard.string(forKey: settingsKey) ?? "") ?? .general).show()
+    }
 }
 
-struct SettingsView: View {
-    @AppStorage(SettingsTab.storageKey) private var tab = SettingsTab.general
+/// One pane of Kay's settings. Each Form scrolls inside the window: sized to its content, as the Settings
+/// window had them, they stretched the split view to 7947 pt and pushed the sidebar out of sight (1.5.8).
+struct SettingsPane: View {
+    let pane: Pane
 
     var body: some View {
-        TabView(selection: $tab) {
-            GeneralSettings()
-                .tabItem { Label("General", systemImage: "gearshape") }
-                .tag(SettingsTab.general)
-            SpeechSettings()
-                .tabItem { Label("Speech Service", systemImage: "waveform.badge.mic") }
-                .tag(SettingsTab.speech)
-            CorrectionSettings()
-                .tabItem { Label("Correction", systemImage: "text.badge.checkmark") }
-                .tag(SettingsTab.correction)
+        switch pane {
+        case .dictations: EmptyView()
+        case .general: GeneralSettings()
+        case .speech: SpeechSettings()
+        case .correction: CorrectionSettings()
         }
-        .frame(width: 560)
     }
 }
 
@@ -160,7 +206,6 @@ private struct GeneralSettings: View {
             }
         }
         .formStyle(.grouped)
-        .fixedSize(horizontal: false, vertical: true)
         .confirmationDialog("Delete all dictation history?", isPresented: $confirmClear) {
             Button("Delete All", role: .destructive) { model.clearHistory() }
         } message: {
@@ -363,7 +408,6 @@ private struct SpeechSettings: View {
             }
         }
         .formStyle(.grouped)
-        .fixedSize(horizontal: false, vertical: true)
         .onAppear { show(speech.provider) }
         .onChange(of: speech.provider) { show(speech.provider) }
         .confirmationDialog("Remove this key from Kay?", isPresented: $confirmRemove) {
@@ -489,7 +533,6 @@ private struct CorrectionSettings: View {
             VocabularyEditor()
         }
         .formStyle(.grouped)
-        .fixedSize(horizontal: false, vertical: true)
         .confirmationDialog("Remove this key from Kay?", isPresented: $confirmRemove) {
             Button("Remove", role: .destructive) { correction.remove() }
         } message: {
