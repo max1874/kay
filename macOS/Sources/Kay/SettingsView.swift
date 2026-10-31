@@ -55,15 +55,22 @@ private struct GeneralSettings: View {
     var body: some View {
         Form {
             Section {
-                Picker("Hold to talk", selection: $model.trigger) {
-                    Text("fn (🌐)").tag(Trigger.fn)
-                    Text("Right Option ⌥").tag(Trigger.rightOption)
+                ForEach(model.triggers) { trigger in
+                    LabeledContent(trigger.name) {
+                        Button("Remove", systemImage: "minus.circle") {
+                            model.triggers.removeAll { $0 == trigger }
+                        }
+                        .labelStyle(.iconOnly)
+                        .buttonStyle(.borderless)
+                        .disabled(model.triggers.count == 1)
+                    }
                 }
+                Button("Add Key…") { model.recordingTrigger = true }
             } header: {
                 Text("Shortcut")
             } footer: {
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("Pressing any other key while you hold it cancels the recording, so shortcuts that use the same key keep working.")
+                    Text("Holding any key in the list dictates, so each keyboard can use its own. Pressing any other key while you hold it cancels the recording, so shortcuts that use the same key keep working.")
                     if model.globeKeyConflict {
                         HStack(alignment: .firstTextBaseline, spacing: 4) {
                             Text("If the emoji picker or another input source shows up after you let go of fn, set “Press 🌐 key to” to “Do Nothing”.")
@@ -159,6 +166,77 @@ private struct GeneralSettings: View {
         } message: {
             Text("This can't be undone.")
         }
+        // Presented, keys pressed in Kay's windows don't dictate, so the ones being recorded don't.
+        .sheet(isPresented: $model.recordingTrigger) {
+            TriggerRecorder(existing: model.triggers) { model.triggers.append($0) }
+        }
+    }
+}
+
+/// Records a new trigger: the modifier keys pressed together, shown as they go down and kept once all are up,
+/// so people see what macOS reports for a key. A key the keyboard keeps to itself shows nothing.
+private struct TriggerRecorder: View {
+    let existing: [Trigger]
+    let add: (Trigger) -> Void
+    @Environment(\.dismiss) private var dismiss
+    @State private var down = Trigger()
+    @State private var keys = Trigger()
+    @State private var typedKey = false
+    @State private var monitor: Any?
+
+    private var recorded: Bool { down.isEmpty && !keys.isEmpty }
+    private var duplicate: Bool { recorded && existing.contains(keys) }
+
+    private var hint: LocalizedStringKey {
+        if duplicate { return "This key is already in the list." }
+        if typedKey { return "Only modifier keys can be held to dictate." }
+        return "fn, Control, Option, Shift or Command, alone or together. Left and right are different keys."
+    }
+
+    var body: some View {
+        VStack(spacing: 12) {
+            Text("Press the Key to Hold")
+                .font(.headline)
+            Text(verbatim: keys.isEmpty ? "–" : keys.name)
+                .font(.title2.weight(.semibold))
+                .foregroundStyle(keys.isEmpty ? .tertiary : .primary)
+            Text(hint)
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+            HStack {
+                Button("Cancel", role: .cancel) { dismiss() }
+                    .keyboardShortcut(.cancelAction)
+                Button("Add") { add(keys); dismiss() }
+                    .keyboardShortcut(.defaultAction)
+                    .disabled(!recorded || duplicate)
+            }
+            .padding(.top, 8)
+        }
+        .padding(20)
+        .frame(width: 360)
+        .onAppear { monitor = NSEvent.addLocalMonitorForEvents(matching: [.flagsChanged, .keyDown], handler: record) }
+        .onDisappear { if let monitor { NSEvent.removeMonitor(monitor) } }
+    }
+
+    private func record(_ event: NSEvent) -> NSEvent? {
+        if event.type == .keyDown {
+            // Return and Escape still press Add and Cancel; any other key is not one that can be held.
+            if down.isEmpty, [36, 53].contains(event.keyCode) { return event }
+            keys = []
+            typedKey = true
+            return nil
+        }
+        let now = Trigger(after: event, from: down)
+        if down.isEmpty, !now.isEmpty {
+            keys = now
+            typedKey = false
+        } else {
+            keys.formUnion(now)
+        }
+        down = now
+        return event
     }
 }
 
