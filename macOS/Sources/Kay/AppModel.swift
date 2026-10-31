@@ -71,7 +71,7 @@ final class AppModel: ObservableObject {
     }
     /// While Settings records a new trigger, its keys must not dictate.
     @Published var recordingTrigger = false {
-        didSet { recordingTrigger ? hotkey.stop() : hotkey.start() }
+        didSet { hotkey.recording = recordingTrigger }
     }
 
     /// "fn or Right Option", for sentences such as "Hold %@ to Dictate".

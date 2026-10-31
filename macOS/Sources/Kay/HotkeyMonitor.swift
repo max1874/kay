@@ -33,8 +33,12 @@ struct Trigger: OptionSet, Hashable, Identifiable {
     private static let all = Trigger(keys.map(\.key))
 
     init(rawValue: UInt) { self.rawValue = rawValue }
-    /// The keys down in an event's modifier flags. Caps Lock locks rather than holds, so it is left out.
-    init(_ flags: NSEvent.ModifierFlags) { self.init(rawValue: flags.rawValue & Self.all.rawValue) }
+    /// The keys down after a flagsChanged event, given those down before it. Caps Lock locks rather than holds, so
+    /// it is left out. Arrow and function keys carry .function while held, so only fn's own event changes fn.
+    init(after event: NSEvent, from before: Trigger) {
+        self.init(rawValue: event.modifierFlags.rawValue & Self.all.rawValue)
+        if event.keyCode != 63 { self = subtracting(.fn).union(before.intersection(.fn)) }  // kVK_Function
+    }
 
     private var parts: [(key: Trigger, symbol: String, name: String)] { Self.keys.filter { contains($0.key) } }
 
@@ -70,8 +74,11 @@ final class HotkeyMonitor {
     var onInterrupt: (() -> Void)?
 
     var triggers: [Trigger] = [.fn] {
-        didSet { if held != nil { held = nil; onInterrupt?() } }
+        didSet { interrupt() }
     }
+    /// While Settings records a trigger, keys pressed in Kay's own windows don't start a dictation; other apps
+    /// still do.
+    var recording = false
 
     private var flagMonitors: [Any] = []
     private var keyMonitors: [Any] = []
@@ -84,22 +91,27 @@ final class HotkeyMonitor {
 
     func start() {
         stop()
-        let flags: (NSEvent) -> Void = { [weak self] in self?.handleFlags($0) }
         flagMonitors = [
-            NSEvent.addGlobalMonitorForEvents(matching: .flagsChanged, handler: flags),
-            NSEvent.addLocalMonitorForEvents(matching: .flagsChanged) { flags($0); return $0 },
+            NSEvent.addGlobalMonitorForEvents(matching: .flagsChanged) { [weak self] in
+                self?.handleFlags($0, canStart: true)
+            },
+            NSEvent.addLocalMonitorForEvents(matching: .flagsChanged) { [weak self] in
+                self?.handleFlags($0, canStart: self?.recording == false)
+                return $0
+            },
         ].compactMap { $0 }
     }
 
+    /// With the monitors gone a release would never arrive, so a dictation in progress is cancelled.
     func stop() {
         flagMonitors.forEach(NSEvent.removeMonitor)
         flagMonitors = []
-        held = nil
+        interrupt()
         down = []
     }
 
     private func watchKeys() {
-        let keyDown: (NSEvent) -> Void = { [weak self] _ in self?.handleKeyDown() }
+        let keyDown: (NSEvent) -> Void = { [weak self] _ in self?.interrupt() }
         keyMonitors = [
             NSEvent.addGlobalMonitorForEvents(matching: .keyDown, handler: keyDown),
             NSEvent.addLocalMonitorForEvents(matching: .keyDown) { keyDown($0); return $0 },
@@ -113,20 +125,20 @@ final class HotkeyMonitor {
 
     /// A trigger starts only as its last key goes down, so letting go of ⌘ in ⌘⇧ never starts a ⇧ trigger. Once
     /// held, letting go of one of its keys ends the dictation, and another modifier joining cancels it, as a key does.
-    private func handleFlags(_ event: NSEvent) {
-        let now = Trigger(event.modifierFlags)
+    private func handleFlags(_ event: NSEvent, canStart: Bool) {
+        let now = Trigger(after: event, from: down)
         defer { down = now }
         if let held {
             guard now != held else { return }
             self.held = nil
             now.isSubset(of: held) ? onRelease?() : onInterrupt?()
-        } else if now.isStrictSuperset(of: down), triggers.contains(now) {
+        } else if canStart, now.isStrictSuperset(of: down), triggers.contains(now) {
             held = now
             onPress?()
         }
     }
 
-    private func handleKeyDown() {
+    private func interrupt() {
         guard held != nil else { return }
         held = nil
         onInterrupt?()

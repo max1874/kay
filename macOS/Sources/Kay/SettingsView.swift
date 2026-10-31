@@ -166,7 +166,7 @@ private struct GeneralSettings: View {
         } message: {
             Text("This can't be undone.")
         }
-        // Presented, it pauses the hotkey, so the keys being recorded don't dictate.
+        // Presented, keys pressed in Kay's windows don't dictate, so the ones being recorded don't.
         .sheet(isPresented: $model.recordingTrigger) {
             TriggerRecorder(existing: model.triggers) { model.triggers.append($0) }
         }
@@ -228,7 +228,7 @@ private struct TriggerRecorder: View {
             typedKey = true
             return nil
         }
-        let now = Trigger(event.modifierFlags)
+        let now = Trigger(after: event, from: down)
         if down.isEmpty, !now.isEmpty {
             keys = now
             typedKey = false
