@@ -61,7 +61,9 @@ microphone it came from (`microphone`).
 
 ## How it works
 
-- **Hold to talk.** fn by default, Right Option as an alternative. Pressing any other key while holding
+- **Hold to talk.** fn by default. Settings → General → Add Key… records more: any modifier key, left or right,
+  alone or together, and holding any key in the list dictates, so each keyboard can use its own (an HHKB's
+  Alt next to its Fn, say; the HHKB's own Fn never reaches macOS). Pressing any other key while holding
   cancels, so fn and ⌥ shortcuts keep working.
 - **Streaming ASR.** Audio is converted to 16 kHz / 16-bit mono in 200 ms packets. Kay buffers it until
   the task is ready, sends packets in order, then finalizes the task on release. Final sentences are
@@ -197,7 +199,7 @@ Apple 芯片的 macOS 26）。1.5.0 起自动更新：每天检查一次，后�
 只发给它自己的服务。总被听错的专名（如 Raycast、Cursor）交给 DeepSeek 纠错：在「设置 → 纠错」填自己的 DeepSeek Key，粘贴前会改正听错的词，不改写句子。被拆成字母的名字（c f、e to b）写进「设置 → 纠错 → 词表」，Kay 会直接改回 CF、E2B；总被听成别的词的，写成 `Cursor | 咳嗽`。词表不需要 Key，也不发给任何服务（热词在 1.8.0 已移除）。豆包 Key 在[火山引擎控制台](https://console.volcengine.com/speech/new/setting/apikeys)（新版）创建，
 填好后选资源类型（小时版或并发版）再测试并保存。
 
-**快捷键**：默认 fn，可改成右 Option。按住时再按其他键会取消本次录音，所以 fn 和 ⌥ 组合键照常可用。
+**快捷键**：默认 fn。「设置 → 通用 → 添加按键…」可以再录入别的键：任意修饰键，分左右，单独或一起按；按住列表里任何一个都能听写，所以每个键盘可以用各自的键（例如 HHKB 用 Fn 旁边的 Alt；HHKB 自己的 Fn 不会发给 macOS）。按住时再按其他键会取消本次录音，所以 fn 和 ⌥ 组合键照常可用。
 
 **音乐和视频**：声音从扬声器外放时（Mac 自带、显示器、HDMI、AirPlay），按住超过 0.3 秒 Kay 会暂停正在播放的内容，听写结束后接着播放；用蓝牙设备（耳机，也包括蓝牙音箱，系统分不出来）或插耳机孔时照常播放。可在「设置 → 通用 → 暂停音乐和视频」关闭。只暂停读到正在播放的内容，只恢复自己暂停的那一个，不会把本来停着的播放器打开。
 如果松开 fn 后弹出了表情面板，把「系统设置 → 键盘 → 按下 🌐 键时」设为「不执行任何操作」。

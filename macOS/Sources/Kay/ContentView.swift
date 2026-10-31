@@ -27,7 +27,7 @@ struct ContentView: View {
                 }
 
                 if model.history.isEmpty {
-                    Text("No dictations yet. Hold \(model.trigger.name) and say something.")
+                    Text("No dictations yet. Hold \(model.triggerNames) and say something.")
                         .foregroundStyle(.secondary)
                         .frame(maxWidth: .infinity, minHeight: 80)
                         .background(.fill.quaternary, in: .rect(cornerRadius: 16))
@@ -72,7 +72,7 @@ private struct StatusHeader: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
             HStack(spacing: 18) {
-                KeyCap(trigger: model.trigger, active: model.isReady, recording: model.state == .recording)
+                KeyCap(trigger: model.triggers[0], active: model.isReady, recording: model.state == .recording)
                 VStack(alignment: .leading, spacing: 6) {
                     Text(headline)
                         .font(.title.weight(.bold))
@@ -127,7 +127,7 @@ private struct StatusHeader: View {
         switch model.state {
         case .recording: "Listening…"
         case .processing: "Recognizing…"
-        case .idle: model.isReady ? "Hold \(model.trigger.name) to Dictate" : "Finish Setting Up Kay"
+        case .idle: model.isReady ? "Hold \(model.triggerNames) to Dictate" : "Finish Setting Up Kay"
         }
     }
 }
@@ -216,7 +216,7 @@ private struct EngineMenu: View {
     }
 }
 
-/// The key you hold, drawn as the keycap on a Mac keyboard.
+/// The first trigger in the list, drawn as the keycap on a Mac keyboard.
 private struct KeyCap: View {
     let trigger: Trigger
     let active: Bool
@@ -229,8 +229,7 @@ private struct KeyCap: View {
 
     var body: some View {
         Group {
-            switch trigger {
-            case .fn:
+            if trigger == .fn {
                 // fn top right, 🌐 bottom left, as printed on the key.
                 VStack(alignment: .leading, spacing: 0) {
                     Text(verbatim: "fn")
@@ -240,12 +239,15 @@ private struct KeyCap: View {
                     Image(systemName: "globe")
                         .font(.system(size: 18, weight: .regular))
                 }
-            case .rightOption:
+            } else {
+                // One modifier has its word under the symbol, as printed; several keys show their symbols.
                 VStack(alignment: .trailing, spacing: 6) {
-                    Text(verbatim: "⌥")
+                    Text(verbatim: trigger.symbols)
                         .font(.system(size: 22, weight: .regular))
-                    Text(verbatim: "option")
-                        .font(.system(size: 11, weight: .medium))
+                    if let word = ["⌃": "control", "⌥": "option", "⇧": "shift", "⌘": "command"][trigger.symbols] {
+                        Text(verbatim: word)
+                            .font(.system(size: 11, weight: .medium))
+                    }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
             }

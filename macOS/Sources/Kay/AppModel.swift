@@ -60,14 +60,22 @@ final class AppModel: ObservableObject {
     @Published private(set) var history: [HistoryEntry] = []
     @Published private(set) var microphone = AVCaptureDevice.authorizationStatus(for: .audio)
     @Published private(set) var accessibility = AXIsProcessTrusted()
-    @Published var trigger = Trigger(rawValue: UserDefaults.standard.string(forKey: Trigger.defaultsKey) ?? "") ?? .fn {
+    /// Any of them dictates, so each keyboard can use its own; never empty.
+    @Published var triggers = Trigger.load() {
         didSet {
-            guard trigger != oldValue else { return }
-            UserDefaults.standard.set(trigger.rawValue, forKey: Trigger.defaultsKey)
-            hotkey.trigger = trigger
+            guard triggers != oldValue else { return }
+            Trigger.save(triggers)
+            hotkey.triggers = triggers
             refreshGlobeKey()
         }
     }
+    /// While Settings records a new trigger, its keys must not dictate.
+    @Published var recordingTrigger = false {
+        didSet { recordingTrigger ? hotkey.stop() : hotkey.start() }
+    }
+
+    /// "fn or Right Option", for sentences such as "Hold %@ to Dictate".
+    var triggerNames: String { triggers.map(\.name).formatted(.list(type: .or)) }
     /// fn is also the 🌐 key. Kay is held, and macOS's own 🌐 action is for a tap, so this is not a
     /// requirement; Settings only mentions it, for Macs where letting go still brings up the emoji picker.
     @Published private(set) var globeKeyConflict = false
@@ -99,7 +107,7 @@ final class AppModel: ObservableObject {
         hotkey.onPress = { [weak self] in self?.begin() }
         hotkey.onRelease = { [weak self] in self?.end() }
         hotkey.onInterrupt = { [weak self] in self?.cancel() }
-        hotkey.trigger = trigger
+        hotkey.triggers = triggers
         hotkey.start()
         refreshGlobeKey()
 
@@ -155,7 +163,7 @@ final class AppModel: ObservableObject {
         let domain = "com.apple.HIToolbox" as CFString
         CFPreferencesAppSynchronize(domain)
         let usage = CFPreferencesCopyAppValue("AppleFnUsageType" as CFString, domain) as? Int
-        let conflict = trigger == .fn && usage != 0
+        let conflict = triggers.contains(.fn) && usage != 0
         if conflict != globeKeyConflict { globeKeyConflict = conflict }
     }
 
