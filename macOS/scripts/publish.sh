@@ -78,7 +78,7 @@ release() {
   # up a password dialog in the middle of every release (sign_update is a fresh binary each time SwiftPM
   # re-resolves, so "Always Allow" doesn't stick).
   local sparkle_key
-  sparkle_key="$("$HOME/.agents/bin/key" run K=SPARKLE_KAY -- printenv K)" || die "could not read SPARKLE_KAY with key"
+  sparkle_key="$("$HOME/.local/bin/open-agent-keys" run K=SPARKLE_KAY -- printenv K)" || die "could not read SPARKLE_KAY with open-agent-keys"
   local sign_update
   sign_update="$(find .build/artifacts -maxdepth 6 -type f -name sign_update -path '*/bin/sign_update' \
     -not -path '*old_dsa*' 2>/dev/null | head -1)"
