@@ -120,7 +120,6 @@ pub enum Input {
 /// One press, one recognition task. Audio sent before the service is ready waits in order; a failure while the
 /// key is still held is kept for the release.
 pub struct Session {
-    pub provider: Provider,
     input: mpsc::UnboundedSender<Input>,
     result: oneshot::Receiver<Result<String, KayError>>,
     _task: AbortOnDrop,
@@ -152,7 +151,7 @@ impl Session {
 
     /// Sends the last audio, ends the task and waits at most `timeout` for the text.
     pub async fn finish(self, last: Vec<u8>, timeout: Duration) -> Result<String, KayError> {
-        let Session { input, result, _task, .. } = self;
+        let Session { input, result, _task } = self;
         let _ = input.send(Input::Finish(last));
         match tokio::time::timeout(timeout, result).await {
             Ok(Ok(outcome)) => outcome,
@@ -204,7 +203,7 @@ impl Kay {
             };
             let _ = done.send(outcome);
         });
-        Some(Session { provider, input, result, _task: AbortOnDrop(task) })
+        Some(Session { input, result, _task: AbortOnDrop(task) })
     }
 
     /// Dictate with `provider` from the next press on, once its key is known to work: a key that hasn't passed a

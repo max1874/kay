@@ -85,9 +85,12 @@ jobs:
         run: |
           version=${GITHUB_REF_NAME#windows-v}
           installer=$(ls bundle/*-setup.exe)
-          gh release create "$GITHUB_REF_NAME" "$installer" "$installer.sig" \
-            --title "Kay for Windows $version" --latest=false --verify-tag \
-            --notes "Kay for Windows $version. Download $(basename "$installer"), run it, and hold Right Alt to dictate."
+          notes="Kay for Windows $version. Download $(basename "$installer"), run it, and hold Right Alt to dictate."
+          # 0.x is a preview: built by CI, not yet tried on a Windows PC.
+          preview=()
+          [[ $version == 0.* ]] && preview=(--prerelease) && notes="$notes This preview has not been tried on a Windows PC yet."
+          gh release create "$GITHUB_REF_NAME" "$installer" "$installer.sig" "${preview[@]}" \
+            --title "Kay for Windows $version" --latest=false --verify-tag --notes "$notes"
           url="https://github.com/$GITHUB_REPOSITORY/releases/download/$GITHUB_REF_NAME/$(basename "$installer")"
           jq -n --arg version "$version" --arg url "$url" --rawfile signature "$installer.sig" \
             '{version: $version, pub_date: (now | todate), platforms: {"windows-x86_64": {url: $url, signature: $signature}}}' \
