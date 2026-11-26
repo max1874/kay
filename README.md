@@ -24,6 +24,15 @@ subscription.
 3. In **Settings → Speech Service**, pick a service under **Dictate With** and add its API key (see below),
    then hold fn and talk.
 
+### Windows (preview)
+
+Kay for Windows is a port with the same features, built with Tauri: download `Kay_x.y.z_x64-setup.exe` from the
+[Windows releases](https://github.com/max1874/kay/releases?q=windows-v) and run it (Windows 10 or 11, no
+administrator rights needed). It is not code-signed yet, so SmartScreen asks first: **More info → Run anyway**.
+Hold **Right Alt** to dictate; other keys are in **Settings → General → Shortcut**. Keys stay in Windows
+Credential Manager, history in `%APPDATA%\Kay`, and it updates itself the same way the Mac app does. Windows
+doesn't let an ordinary app type into apps running as administrator; there the dictation lands in History only.
+
 ### Getting an Alibaba Cloud key
 
 1. Open [Alibaba Cloud Model Studio](https://bailian.console.aliyun.com/) and create an API key.
@@ -144,9 +153,12 @@ More at [max1874.com/kay](https://max1874.com/kay/).
 macOS/    the Mac app (SwiftPM; Package.swift is at the root), its resources and scripts
 iOS/      an experimental iPhone app (Xcode project) — not maintained, not on the App Store
 Shared/   compiled into both: the Qwen and Doubao streaming protocols, audio capture, key storage, history
+windows/  Kay for Windows (Tauri 2: Rust in src-tauri/, Svelte UI in src/), a port of the Mac app
 ```
 
-Needs Xcode 26 (macOS 26 SDK).
+Needs Xcode 26 (macOS 26 SDK). The Windows app builds on Windows with Rust and pnpm: `cd windows && pnpm install &&
+pnpm tauri build`; CI builds it on every change (`.github/workflows/windows.yml`) and publishes a release for a
+`windows-v<version>` tag.
 
 ### About the iPhone app
 
@@ -189,6 +201,11 @@ Kay 是一个开源的 macOS 按住说话听写工具。按住 **fn** 说话，�
 
 **安装**：从 [Releases](https://github.com/max1874/kay/releases) 下载 DMG 拖进「应用程序」（已签名公证，需要
 Apple 芯片的 macOS 26）。1.5.0 起自动更新：每天检查一次，后台下载，不在听写时自动装好。首次打开允许「麦克风」和「辅助功能」，然后在「设置 → 语音服务」里填 Key。
+
+**Windows 版（预览）**：同样的功能，用 Tauri 移植。从 [Windows 版 Releases](https://github.com/max1874/kay/releases?q=windows-v)
+下载 `Kay_x.y.z_x64-setup.exe` 运行即可（Windows 10/11，不需要管理员权限）。还没有代码签名，SmartScreen 会拦一下：点「更多信息 → 仍要运行」。
+按住**右 Alt** 听写，可在「设置 → 通用 → 快捷键」换。Key 存在 Windows 凭据管理器，历史在 `%APPDATA%\Kay`，同样会自动更新。
+以管理员身份运行的程序 Windows 不让普通程序输入，在那里听写的文字只会进历史。
 
 **获取 Key**：在[阿里云百炼控制台](https://bailian.console.aliyun.com/)创建 API Key，
 在 Kay 中填写 Key 和同一工作空间的地址，例如 `https://<WorkspaceId>.cn-beijing.maas.aliyuncs.com`。

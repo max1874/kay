@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Kay's own pages: they call Kay's commands and listen to its events.",
+  "windows": ["main", "hud"],
+  "permissions": ["core:default"]
+}
