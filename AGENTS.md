@@ -1,12 +1,14 @@
 # Kay — Agent Instructions
 
-Kay is Max's push-to-talk dictation app for macOS (see `README.md`). These are the repository-level rules; the global rules in `~/.agents/AGENTS.md` still apply.
+Kay is Max's push-to-talk dictation app for macOS, with a Windows port in `windows/` (see `README.md`). These are the repository-level rules; the global rules in `~/.agents/AGENTS.md` still apply.
 
 ## Essential variable
 
 Hold fn, speak, release: the text lands at the cursor and a record is appended to `~/Library/Application Support/Kay/history.json`. Any change executed on that path (key handling, audio capture, the ASR session, paste, the HUD shown during dictation) is core-path, however cosmetic it looks.
 
 Read this variable from the product, never from a proxy: a `history.json` entry newer than the install, and no new `~/Library/Logs/DiagnosticReports/Kay-*.ips` since the install. Signing, notarization, the DMG, Sparkle installing the update, idle CPU, and offscreen renders do not read it.
+
+On Windows (`windows/`, since 2026-11-27) the same path is hold Right Alt, speak, release: the text lands at the cursor and a record is appended to `%APPDATA%\Kay\history.json`; `%LOCALAPPDATA%\Kay\Logs\kay.log` records each dictation and failure. The keyboard hook, WASAPI capture, the speech session, clipboard paste and the HUD window are core-path. Max has no Windows machine: no Windows build has been run, so every Windows change is "changed, unverified" until a dictation on a real Windows PC is in that `history.json`. The CI build compiles it and nothing more.
 
 ## Release policy (Max's decision, 2026-10-07)
 
