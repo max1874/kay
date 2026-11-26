@@ -1,0 +1,10 @@
+{
+  "version": "0.1.0",
+  "pub_date": "2026-11-26T16:43:24Z",
+  "platforms": {
+    "windows-x86_64": {
+      "url": "https://github.com/max1874/kay/releases/download/windows-v0.1.0/Kay_0.1.0_x64-setup.exe",
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSNG9VTUNWeXlLTTk2Tld6bytKMnBSNWFQRWpGWWRiUkNNcTBpdEVGOFlvNnYzNGtEWFdWUXo0VDZkVGZncCttcWxHVXAwVGZPMEJMRzhkYW9PeTlYSG0wNEZvNk9yenc0PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzk1NzExMzUxCWZpbGU6S2F5XzAuMS4wX3g2NC1zZXR1cC5leGUJdmVyc2lvbjowLjEuMAoxZ2pwNEkxYVJCb09Ya012VURjSzRVVERtNnl1VU1kUVQzdHo5MnB3OFN2dnFlMEJWempmMGN2eEhNd1hXQTJSbENtUVBaNlpBMkc0akNIcHByVUZBUT09Cg=="
+    }
+  }
+}
